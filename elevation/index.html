@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+<meta name="theme-color" content="#11151c"/>
+<title>Elevation Finder</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⛰</text></svg>"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<style>
+  :root {
+    --bg: #11151c; --panel: #171c25; --line: #2a3242; --text: #e8e4da;
+    --muted: #8b93a3; --accent: #f2b544; --sea: #5aa9e6; --err: #ef6b6b;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); }
+  body {
+    color: var(--text);
+    font-family: 'Space Grotesk', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex; flex-direction: column; height: 100dvh;
+  }
+  button, input { font-family: inherit; }
+  button { cursor: pointer; }
+
+  /* header */
+  .hd {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--bg);
+    z-index: 1000;
+  }
+  .brand { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
+  .brand small { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
+  form.search { flex: 1 1 220px; display: flex; gap: 6px; min-width: 0; }
+  form.search input {
+    flex: 1; min-width: 0; background: var(--panel); border: 1px solid var(--line);
+    color: var(--text); border-radius: 8px; padding: 8px 10px; font-size: 14px; outline: none;
+  }
+  form.search input:focus { border-color: var(--accent); }
+  .btn {
+    background: var(--panel); border: 1px solid var(--line); color: var(--text);
+    border-radius: 8px; padding: 8px 10px; font-size: 13px; white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--muted); }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .seg button {
+    background: var(--panel); border: 0; color: var(--muted); padding: 7px 12px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+  }
+  .seg button.on { background: var(--accent); color: #11151c; font-weight: 600; }
+
+  /* layout */
+  .main { flex: 1; display: flex; min-height: 0; position: relative; }
+  #map { flex: 1; min-height: 0; background: #0d1117; cursor: crosshair; }
+  .side {
+    width: 320px; border-left: 1px solid var(--line); background: var(--bg);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .card { padding: 16px; border-bottom: 1px solid var(--line); }
+  .label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .elev {
+    font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 40px;
+    line-height: 1.1; margin: 6px 0 2px; color: var(--accent);
+  }
+  .elev.below { color: var(--sea); }
+  .elev.err { color: var(--err); font-size: 15px; font-weight: 500; }
+  .elev-alt { font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: var(--muted); }
+  .place { margin-top: 10px; font-size: 14px; }
+  .coords { margin-top: 4px; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
+  .hint { color: var(--muted); font-size: 14px; line-height: 1.5; }
+  .src { margin-top: 8px; font-size: 11px; color: var(--muted); }
+  .hist-hd { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px 6px; }
+  .hist-hd button { background: none; border: 0; color: var(--muted); font-size: 12px; padding: 0; }
+  .hist-hd button:hover { color: var(--text); }
+  ul.hist { list-style: none; margin: 0; padding: 0 8px 16px; overflow-y: auto; flex: 1; }
+  ul.hist li {
+    display: flex; justify-content: space-between; gap: 10px; padding: 8px; border-radius: 8px; cursor: pointer;
+  }
+  ul.hist li:hover { background: var(--panel); }
+  ul.hist .h-c { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
+  ul.hist .h-n { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  ul.hist .h-l { min-width: 0; }
+  ul.hist .h-e { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--accent); white-space: nowrap; }
+  ul.hist .h-e.below { color: var(--sea); }
+  .spin {
+    display: inline-block; width: 22px; height: 22px; border: 3px solid var(--line);
+    border-top-color: var(--accent); border-radius: 50%; animation: sp .8s linear infinite; margin: 14px 0 6px;
+  }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  /* leaflet theming */
+  .leaflet-container { font-family: 'Space Grotesk', system-ui, sans-serif; }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--panel); color: var(--text); border: 1px solid var(--line); }
+  .leaflet-popup-content { margin: 10px 12px; font-size: 13px; }
+  .leaflet-popup-content b { font-family: 'IBM Plex Mono', monospace; color: var(--accent); font-size: 15px; }
+  .leaflet-container a.leaflet-popup-close-button { color: var(--muted); }
+  .leaflet-control-layers, .leaflet-bar a { background: var(--panel); color: var(--text); border-color: var(--line) !important; }
+  .leaflet-bar a.leaflet-disabled { background: var(--bg); color: var(--line); }
+  .leaflet-control-layers { border: 1px solid var(--line) !important; }
+  .leaflet-control-attribution { background: rgba(17,21,28,.8) !important; color: var(--muted); }
+  .leaflet-control-attribution a { color: #b9c0cc; }
+  .pin {
+    width: 18px; height: 18px; border-radius: 50%; background: var(--accent);
+    border: 3px solid #11151c; box-shadow: 0 0 0 2px var(--accent), 0 2px 8px rgba(0,0,0,.5);
+  }
+
+  /* phone: info panel becomes a bottom sheet */
+  @media (max-width: 760px) {
+    .brand small { display: none; }
+    .main { flex-direction: column; }
+    .side { width: 100%; border-left: 0; border-top: 1px solid var(--line); max-height: 40dvh; }
+    .card { padding: 12px 16px; }
+    .elev { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+<header class="hd">
+  <div class="brand">⛰ Elevation Finder<small>Click anywhere on the map</small></div>
+  <form class="search" id="search" autocomplete="off">
+    <input id="q" type="search" placeholder="Search a place, or paste lat, lon" aria-label="Search location"/>
+    <button class="btn" type="submit">Go</button>
+  </form>
+  <button class="btn" id="locate" type="button" title="Use my location">◎ Me</button>
+  <div class="seg" role="group" aria-label="Units">
+    <button type="button" data-u="m" class="on">m</button>
+    <button type="button" data-u="ft">ft</button>
+  </div>
+</header>
+
+<div class="main">
+  <div id="map" aria-label="World map"></div>
+  <aside class="side">
+    <div class="card" id="result">
+      <div class="label">Elevation</div>
+      <p class="hint">Click or tap any spot on the map to see its height above (or below) sea level.</p>
+    </div>
+    <div class="hist-hd">
+      <span class="label">Recent spots</span>
+      <button type="button" id="clear">Clear</button>
+    </div>
+    <ul class="hist" id="hist"></ul>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(() => {
+  const M_TO_FT = 3.28084;
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  };
+
+  let unit = store.get('elev.unit', 'm');
+  let history = store.get('elev.history', []);
+  let current = null;      // { lat, lon, elev, src, name }
+  let reqId = 0;
+
+  // ---------- map ----------
+  const map = L.map('map', { worldCopyJump: true, minZoom: 2 }).setView([25, 10], 2);
+  const layers = {
+    'Streets': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' }),
+    'Terrain': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+      maxZoom: 17, attribution: 'Map: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA), &copy; OpenStreetMap' }),
+    'Satellite': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19, attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' }),
+  };
+  const savedLayer = store.get('elev.layer', 'Terrain');
+  (layers[savedLayer] || layers.Terrain).addTo(map);
+  L.control.layers(layers, null, { position: 'topright' }).addTo(map);
+  L.control.scale({ imperial: true, metric: true }).addTo(map);
+  map.on('baselayerchange', (e) => store.set('elev.layer', e.name));
+
+  const marker = L.marker([0, 0], {
+    icon: L.divIcon({ className: '', html: '<div class="pin"></div>', iconSize: [18, 18], iconAnchor: [9, 9], popupAnchor: [0, -10] }),
+  });
+
+  map.on('click', (e) => {
+    const p = e.latlng.wrap();
+    lookup(p.lat, p.lng);
+  });
+
+  // ---------- formatting ----------
+  const fmtNum = (n) => Math.round(n).toLocaleString();
+  function fmtElev(m, u = unit) {
+    const v = u === 'ft' ? m * M_TO_FT : m;
+    return `${fmtNum(v)} ${u}`;
+  }
+  const fmtCoord = (lat, lon) =>
+    `${Math.abs(lat).toFixed(5)}° ${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(5)}° ${lon >= 0 ? 'E' : 'W'}`;
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  // ---------- data sources ----------
+  async function getJSON(url, ms = 10000) {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), ms);
+    try {
+      const r = await fetch(url, { signal: ctl.signal });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      return await r.json();
+    } finally { clearTimeout(t); }
+  }
+
+  // Land: Open-Meteo (Copernicus DEM, ~90 m). Sea floor / fallback: Open Topo Data ETOPO1.
+  async function fetchElevation(lat, lon) {
+    let land = null;
+    try {
+      const d = await getJSON(`https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lon}`);
+      const v = d && Array.isArray(d.elevation) ? d.elevation[0] : null;
+      if (typeof v === 'number' && !Number.isNaN(v)) land = v;
+    } catch {}
+
+    // Copernicus DEM reports 0 over open water; ask ETOPO1 for ocean depth there (or if Open-Meteo failed).
+    if (land === null || land === 0) {
+      try {
+        const d = await getJSON(`https://api.opentopodata.org/v1/etopo1?locations=${lat},${lon}`);
+        const v = d && d.results && d.results[0] ? d.results[0].elevation : null;
+        if (typeof v === 'number') {
+          if (land === null) return { elev: v, src: 'ETOPO1 (1.8 km)' };
+          if (v < 0) return { elev: v, src: 'ETOPO1 bathymetry (1.8 km)', water: true };
+        }
+      } catch {}
+    }
+    if (land === null) throw new Error('Elevation service unavailable');
+    return { elev: land, src: 'Copernicus DEM (90 m)' };
+  }
+
+  async function fetchPlaceName(lat, lon) {
+    try {
+      const d = await getJSON(`https://nominatim.openstreetmap.org/reverse?format=json&zoom=10&lat=${lat}&lon=${lon}&accept-language=en`, 6000);
+      if (!d || d.error) return null;
+      const a = d.address || {};
+      const parts = [a.city || a.town || a.village || a.hamlet || a.county || a.state_district, a.state, a.country].filter(Boolean);
+      return parts.length ? [...new Set(parts)].join(', ') : (d.display_name || null);
+    } catch { return null; }
+  }
+
+  // ---------- lookup ----------
+  async function lookup(lat, lon, opts = {}) {
+    const id = ++reqId;
+    marker.setLatLng([lat, lon]).addTo(map);
+    marker.unbindPopup();
+    if (opts.fly) map.flyTo([lat, lon], Math.max(map.getZoom(), opts.zoom || 10), { duration: 1.2 });
+    renderLoading(lat, lon);
+
+    const namePromise = opts.name ? Promise.resolve(opts.name) : fetchPlaceName(lat, lon);
+    try {
+      const r = await fetchElevation(lat, lon);
+      if (id !== reqId) return;
+      current = { lat, lon, elev: r.elev, src: r.src, water: !!r.water, name: null };
+      render();
+      const name = await namePromise;
+      if (id !== reqId) return;
+      current.name = name;
+      render();
+      addHistory(current);
+    } catch (err) {
+      if (id !== reqId) return;
+      current = null;
+      renderError(lat, lon, err.message);
+    }
+  }
+
+  // ---------- rendering ----------
+  function renderLoading(lat, lon) {
+    $('result').innerHTML = `
+      <div class="label">Elevation</div>
+      <div class="spin" aria-label="Loading"></div>
+      <div class="coords">${fmtCoord(lat, lon)}</div>`;
+  }
+
+  function renderError(lat, lon, msg) {
+    $('result').innerHTML = `
+      <div class="label">Elevation</div>
+      <div class="elev err">Couldn't get elevation — ${esc(msg)}. Check your connection and try again.</div>
+      <div class="coords">${fmtCoord(lat, lon)}</div>`;
+  }
+
+  function render() {
+    if (!current) return;
+    const { lat, lon, elev, src, name, water } = current;
+    const other = unit === 'm' ? 'ft' : 'm';
+    const below = elev < 0;
+    const desc = water ? 'below sea level (sea floor)' : below ? 'below sea level' : elev === 0 ? 'at sea level' : 'above sea level';
+    $('result').innerHTML = `
+      <div class="label">Elevation</div>
+      <div class="elev ${below ? 'below' : ''}">${fmtElev(elev)}</div>
+      <div class="elev-alt">${fmtElev(elev, other)} · ${desc}</div>
+      ${name ? `<div class="place">${esc(name)}</div>` : ''}
+      <div class="coords">${fmtCoord(lat, lon)}</div>
+      <div class="src">Source: ${esc(src)}</div>`;
+    marker.bindPopup(`<b>${fmtElev(elev)}</b><br>${name ? esc(name) + '<br>' : ''}<span style="color:var(--muted)">${fmtCoord(lat, lon)}</span>`,
+      { autoPan: false }).openPopup();
+  }
+
+  function addHistory(p) {
+    history = history.filter((h) => !(Math.abs(h.lat - p.lat) < 1e-5 && Math.abs(h.lon - p.lon) < 1e-5));
+    history.unshift({ lat: p.lat, lon: p.lon, elev: p.elev, src: p.src, water: p.water, name: p.name });
+    history = history.slice(0, 20);
+    store.set('elev.history', history);
+    renderHistory();
+  }
+
+  function renderHistory() {
+    const ul = $('hist');
+    if (!history.length) {
+      ul.innerHTML = '<li style="cursor:default"><span class="hint" style="font-size:13px">No spots yet.</span></li>';
+      return;
+    }
+    ul.innerHTML = history.map((h, i) => `
+      <li data-i="${i}">
+        <div class="h-l">
+          <div class="h-n">${esc(h.name || 'Unnamed spot')}</div>
+          <div class="h-c">${h.lat.toFixed(3)}, ${h.lon.toFixed(3)}</div>
+        </div>
+        <div class="h-e ${h.elev < 0 ? 'below' : ''}">${fmtElev(h.elev)}</div>
+      </li>`).join('');
+  }
+
+  $('hist').addEventListener('click', (e) => {
+    const li = e.target.closest('li[data-i]');
+    if (!li) return;
+    const h = history[+li.dataset.i];
+    reqId++;
+    current = { ...h };
+    marker.setLatLng([h.lat, h.lon]).addTo(map);
+    map.flyTo([h.lat, h.lon], Math.max(map.getZoom(), 9), { duration: 1 });
+    render();
+  });
+
+  $('clear').addEventListener('click', () => { history = []; store.set('elev.history', history); renderHistory(); });
+
+  // ---------- units ----------
+  function setUnit(u) {
+    unit = u;
+    store.set('elev.unit', u);
+    document.querySelectorAll('.seg button').forEach((b) => b.classList.toggle('on', b.dataset.u === u));
+    render();
+    renderHistory();
+  }
+  document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => setUnit(b.dataset.u)));
+
+  // ---------- search ----------
+  $('search').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = $('q').value.trim();
+    if (!q) return;
+    const m = q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)\s*$/);
+    if (m) {
+      const lat = +m[1], lon = +m[2];
+      if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) return lookup(lat, lon, { fly: true });
+    }
+    try {
+      const res = await getJSON(`https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=en&q=${encodeURIComponent(q)}`, 8000);
+      if (!res || !res.length) { $('result').innerHTML = `<div class="label">Search</div><p class="hint">No place found for “${esc(q)}”.</p>`; return; }
+      const r = res[0];
+      lookup(+r.lat, +r.lon, { fly: true, zoom: 11, name: r.display_name.split(',').slice(0, 3).join(',') });
+    } catch {
+      $('result').innerHTML = `<div class="label">Search</div><p class="hint">Search is unavailable right now. You can still click the map.</p>`;
+    }
+  });
+
+  // ---------- geolocation ----------
+  $('locate').addEventListener('click', () => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => lookup(pos.coords.latitude, pos.coords.longitude, { fly: true, zoom: 13 }),
+      () => { $('result').innerHTML = `<div class="label">Location</div><p class="hint">Couldn't get your location. Check the browser's location permission.</p>`; },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  });
+
+  setUnit(unit);
+})();
+</script>
+</body>
+</html>
