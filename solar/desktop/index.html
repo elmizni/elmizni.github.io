@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Solar Home</title>
+<style>
+:root{--ink:#fff;--ink-2:rgba(255,255,255,.84);--ink-3:rgba(255,255,255,.62);
+  --solar:#ffd24a;--batt:#3fe08a;--home:#56b6ff;--feed:#63e2e8;--grid:#c7ccd4;--gen:#ff9f43;
+  --glass:rgba(14,18,26,.34);--glass-line:rgba(255,255,255,.17);
+  --font:"SF Pro Display",-apple-system,BlinkMacSystemFont,"Inter","Roboto","Segoe UI","Helvetica Neue",Arial,sans-serif}
+*{box-sizing:border-box;margin:0;padding:0}
+*:focus{outline:none}
+html,body{height:100%;background:#05070b;overflow:hidden}
+body{font-family:var(--font);color:var(--ink);-webkit-font-smoothing:antialiased}
+#stage{position:fixed;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0;overflow:hidden;background:#0b1017}
+.frame{position:absolute;inset:0;width:1920px;height:1080px;transition:opacity 2.5s linear}
+#rain{position:absolute;inset:0;opacity:0;transition:opacity 3s;pointer-events:none;overflow:hidden}
+#rain .r{position:absolute;left:0;top:-1080px;width:1920px;height:2160px;background:repeating-linear-gradient(104deg,rgba(255,255,255,0) 0 22px,rgba(220,230,255,.25) 22px 24px,rgba(255,255,255,0) 24px 47px);background-size:100% 240px;animation:fall .9s linear infinite;will-change:transform}
+@keyframes fall{to{transform:translate3d(-60px,1080px,0)}}
+#fog{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity 4s;background:linear-gradient(to top,rgba(210,216,224,.6),rgba(210,216,224,.2) 55%,rgba(210,216,224,0))}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none}
+.scrim{position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(4,7,12,.3) 0,rgba(4,7,12,.08) 15%,rgba(4,7,12,0) 26%),
+    linear-gradient(90deg,rgba(4,7,12,.2) 0,rgba(4,7,12,0) 26%),
+    linear-gradient(0deg,rgba(4,7,12,.5) 0,rgba(4,7,12,.2) 14%,rgba(4,7,12,0) 27%)}
+.glass{background:var(--glass);border:1px solid var(--glass-line);-webkit-backdrop-filter:blur(22px) saturate(1.5);backdrop-filter:blur(22px) saturate(1.5);
+  box-shadow:0 18px 50px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.14)}
+.ui{position:absolute;text-shadow:0 2px 16px rgba(0,0,0,.5),0 1px 3px rgba(0,0,0,.35)}
+.clock{left:92px;top:52px}
+.clock .time{font-size:64px;font-weight:600;letter-spacing:-.01em;line-height:1;font-variant-numeric:tabular-nums}
+.clock .date{margin-top:12px;font-size:31px;font-weight:500;color:var(--ink-2)}
+.weather{left:70px;top:196px;padding:18px 30px 22px 24px;border-radius:30px;transition:opacity 1s}
+.weather .loc{font-size:31px;font-weight:600}
+.weather .row{display:flex;align-items:center;gap:18px}
+.weather .temp{font-size:96px;font-weight:600;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums}
+.weather .icon{width:84px;height:84px;filter:drop-shadow(0 4px 18px rgba(0,0,0,.35))}
+.weather .icon svg{width:100%;height:100%;display:block;overflow:visible}
+.weather .cond{font-size:28px;font-weight:500}
+.weather .hl{font-size:25px;font-weight:500;color:var(--ink-2);margin-top:3px;font-variant-numeric:tabular-nums}
+.status{left:50%;top:58px;transform:translateX(-50%);min-width:548px;padding:22px 46px 24px;border-radius:32px;text-align:center;white-space:nowrap}
+.status .title{font-size:39px;font-weight:600;letter-spacing:-.005em}
+.status .sub{font-size:25px;font-weight:500;color:var(--ink-2);margin-top:6px}
+.conn{right:84px;top:52px;padding:11px 20px 12px 22px;border-radius:40px;font-size:21px;font-weight:500;display:flex;align-items:center;gap:11px}
+.conn i{width:12px;height:12px;border-radius:50%;background:#8a919c}
+.conn i.live{background:var(--batt);box-shadow:0 0 12px var(--batt)} .conn i.err{background:#ff8a3c;box-shadow:0 0 12px #ff8a3c}
+#flows{position:absolute;inset:0;width:1920px;height:1080px;pointer-events:none;overflow:visible}
+.flow-base{fill:none;stroke-width:2.6;stroke-linecap:round;opacity:.95}
+.flow-glow{fill:none;stroke-width:9;stroke-linecap:round;opacity:.3}
+.flow-dots{fill:none;stroke:#fff;stroke-width:5.5;stroke-linecap:round;stroke-dasharray:1 96;opacity:.95;animation:run 1.6s linear infinite}
+.flow.rev .flow-dots{animation-direction:reverse}
+.flow.off .flow-dots,.flow.off .flow-glow{display:none} .flow.off .flow-base{opacity:.28;stroke-dasharray:2 9}
+#f-grid.off{display:none}
+@keyframes run{to{stroke-dashoffset:-97}}
+.node{width:264px;padding:17px 22px 19px;border-radius:26px}
+.node .lab{display:flex;align-items:center;gap:10px;font-size:22px;font-weight:600;letter-spacing:.07em}
+.node .lab i{width:12px;height:12px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor}
+.node .val{font-size:40px;font-weight:600;letter-spacing:-.01em;margin-top:5px;line-height:1.12;font-variant-numeric:tabular-nums}
+.node .val small{font-size:30px;font-weight:500;margin-left:4px;color:var(--ink-2)}
+.node .sub{font-size:22px;font-weight:500;color:var(--ink-2);margin-top:3px;white-space:nowrap}
+#n-solar{left:1318px;top:142px} #n-solar .lab{color:var(--solar)}
+#n-grid{left:1604px;top:142px} #n-grid .lab{color:var(--grid)}
+#n-batt{left:1604px;top:382px} #n-batt .lab{color:var(--batt)}
+#n-home{left:1604px;top:586px} #n-home .lab{color:var(--home)}
+.node.idle .val,.node.idle .val small{color:var(--ink-3)}
+#batt{left:1408px;top:388px;width:82px;height:128px;filter:drop-shadow(0 6px 22px rgba(0,0,0,.4))}
+/* dock */
+.dock{position:absolute;left:52px;right:52px;bottom:42px;height:152px;border-radius:36px;padding:18px 20px;display:flex;align-items:center;gap:18px}
+.app{position:relative;flex:0 0 230px;height:116px;border-radius:22px;display:grid;place-items:center;overflow:hidden;border:1px solid rgba(255,255,255,.08);background:#16191f;
+  box-shadow:0 8px 24px rgba(0,0,0,.3);transition:transform .2s cubic-bezier(.2,.8,.3,1),box-shadow .2s;will-change:transform}
+.app::after{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(255,255,255,.14),rgba(255,255,255,0) 42%);pointer-events:none}
+.app:focus{transform:scale(1.055);box-shadow:0 0 0 4px #fff,0 18px 44px rgba(0,0,0,.5);z-index:2}
+.app span{position:relative;z-index:1;white-space:nowrap}
+.app img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.app .ph{font-size:30px;font-weight:700;letter-spacing:-.02em}
+.a-netflix{background:#0c0c0d} .a-netflix span{color:#e50914;font-size:44px;font-weight:800;letter-spacing:.035em;transform:scaleY(1.18);font-family:"Arial Narrow","Roboto Condensed","Helvetica Neue",var(--font)}
+.a-youtube{background:#1a1b1e} .a-youtube span{display:flex;align-items:center;gap:10px;font-size:35px;font-weight:700;letter-spacing:-.045em}
+.a-youtube b{width:50px;height:36px;border-radius:10px;background:#ff0033;display:grid;place-items:center}
+.a-youtube b::after{content:"";border-left:14px solid #fff;border-top:8.5px solid transparent;border-bottom:8.5px solid transparent;margin-left:3px}
+.a-shahid{background:linear-gradient(150deg,#131a24,#0a0e15)} .a-shahid span{font-size:43px;font-weight:800;letter-spacing:-.02em} .a-shahid em{font-style:normal;color:#2fe3a0}
+.a-osn{background:linear-gradient(150deg,#2a1c7d,#150c45)} .a-osn span{font-size:46px;font-weight:800;letter-spacing:-.02em} .a-osn em{font-style:normal;color:#ff8a1f}
+.a-prime{background:linear-gradient(165deg,#1397d6,#0a5fa0)} .a-prime span{font-size:33px;font-weight:700;letter-spacing:-.02em}
+.a-spotify{background:#111212} .a-spotify span{display:flex;align-items:center;gap:11px;color:#1ed760;font-size:35px;font-weight:700;letter-spacing:-.035em}
+.a-spotify b{width:40px;height:40px;border-radius:50%;background:#1ed760}
+.spacer{flex:1}
+.util{flex:0 0 82px;height:82px;border-radius:22px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12);display:grid;place-items:center;transition:transform .2s,box-shadow .2s}
+.util::after{display:none}
+.util:focus{transform:scale(1.08);box-shadow:0 0 0 4px #fff,0 18px 44px rgba(0,0,0,.5)}
+.util svg{width:40px;height:40px;stroke:#fff;fill:none;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round;opacity:.92}
+.all{position:absolute;inset:0;background:rgba(4,5,6,.94);display:none;padding:64px 96px;overflow:hidden}
+.all.on{display:block}
+.all h2{font-weight:500;font-size:34px;margin-bottom:34px}
+.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:40px 28px;transition:transform .25s}
+.grid .app{width:100%;flex:none}
+.grid .app .nm{position:absolute;bottom:8px;left:0;right:0;text-align:center;font-size:18px;opacity:.85;z-index:1;text-shadow:0 1px 4px #000}
+.dock .nm{display:none}
+#edit{position:absolute;inset:0;background:rgba(4,6,10,.95);display:none;padding:56px 96px}
+#edit.on{display:block}
+#edit h2{font-size:40px;font-weight:600}
+#edit .hint{font-size:24px;color:var(--ink-2);margin:10px 0 26px}
+#edit .lbl{font-size:22px;font-weight:600;letter-spacing:.07em;color:var(--ink-3);margin:0 0 14px}
+#erow{display:flex;gap:16px;min-height:112px;margin-bottom:34px;padding:12px;border-radius:24px;background:rgba(255,255,255,.06)}
+#erow .app{flex:0 0 160px;height:90px}
+#erow .app.lift{transform:translateY(-10px) scale(1.08);box-shadow:0 0 0 4px var(--solar),0 18px 44px rgba(0,0,0,.6)}
+#erow .empty{font-size:22px;color:var(--ink-3);align-self:center;padding-left:12px}
+#egrid{display:grid;grid-template-columns:repeat(7,1fr);gap:24px 22px;transition:transform .25s}
+#egrid .app{flex:none;width:100%;height:118px}
+#egrid .app .nm,#erow .app .nm{display:block;position:absolute;left:0;right:0;bottom:6px;text-align:center;font-size:17px;z-index:1;text-shadow:0 1px 4px #000}
+#egrid .app.on{box-shadow:0 0 0 3px var(--batt)}
+#egrid .app[class*="a-"] .nm,#erow .app[class*="a-"] .nm{display:none}
+#egrid .app .ck{position:absolute;top:8px;right:8px;width:34px;height:34px;border-radius:50%;background:var(--batt);color:#06210f;font-size:20px;font-weight:800;display:none;place-items:center;z-index:2}
+#egrid .app.on .ck{display:grid}
+#egrid .app:focus,#erow .app:focus{transform:scale(1.06);box-shadow:0 0 0 4px #fff,0 18px 44px rgba(0,0,0,.5);z-index:3}
+#egrid .app.on:focus{box-shadow:0 0 0 4px #fff,0 0 0 8px var(--batt)}
+
+/* desktop wallpaper layout: cards pulled inwards so they survive 16:10 cropping and the menu bar */
+.weather{left:180px;top:92px} .status{left:180px;top:372px;transform:none;text-align:left;min-width:0;padding:20px 34px 22px} .conn{right:200px;top:70px}
+#n-solar{left:1204px} #n-grid,#n-batt,#n-home{left:1490px} #batt{left:1294px}
+.conn button{margin-left:6px;font-size:22px;color:#fff;background:none;border:0;cursor:pointer;opacity:.75}
+.sheet{position:fixed;inset:0;z-index:10;display:none;background:rgba(0,0,0,.5);font-family:var(--font)}
+.sheet.on{display:grid;place-items:center}
+.panel{width:420px;background:#151a22;border-radius:20px;padding:22px 22px 20px;border:1px solid rgba(255,255,255,.12);color:#fff}
+.panel h2{font-size:21px;font-weight:700} .panel p{font-size:14px;color:rgba(255,255,255,.78);line-height:1.4;margin:6px 0 10px}
+.panel label{display:block;font-size:13px;font-weight:600;color:rgba(255,255,255,.78);margin:12px 0 6px}
+.panel input{width:100%;font:inherit;font-size:15px;color:#fff;background:#0d1117;border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:10px 12px}
+.btns{display:flex;gap:10px;margin-top:16px} .btn{flex:1;padding:12px;border-radius:12px;font-size:15px;font-weight:600;background:rgba(255,255,255,.1);color:#fff;border:0;cursor:pointer}
+.btn.pri{background:#3fe08a;color:#06210f} .err{color:#ff9d6b;font-size:13px;margin-top:10px;min-height:16px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <img class="frame" id="fA" alt=""><img class="frame" id="fB" alt="" style="opacity:0"><img class="frame" id="fC" alt="" style="opacity:0">
+  <div id="rain"><div class="r"></div></div><div id="fog"></div>
+  <div class="scrim"></div>
+  <svg id="flows" viewBox="0 0 1920 1080"></svg>
+  <div class="ui weather glass" id="wxbox" style="opacity:0">
+    <div class="loc">Yarze</div>
+    <div class="row"><div class="temp" id="wxT">--°</div><div class="icon" id="wxI"></div></div>
+    <div class="cond" id="wxC">&nbsp;</div><div class="hl" id="wxHL">&nbsp;</div>
+  </div>
+  <div class="ui status glass"><div class="title" id="headT">&nbsp;</div><div class="sub" id="headS">&nbsp;</div></div>
+  <div class="ui conn glass" id="conn"><span id="statusTxt">Connecting…</span><i id="statusDot"></i><button id="gear" aria-label="Settings">⚙︎</button></div>
+  <div class="ui node glass" id="n-solar"><div class="lab"><i></i>SOLAR</div><div class="val" id="e-solar">–</div><div class="sub" id="e-solar-sub">&nbsp;</div></div>
+  <div class="ui node glass" id="n-grid"><div class="lab"><i></i><span id="gridName">GRID</span></div><div class="val" id="e-grid">–</div><div class="sub" id="e-grid-sub">&nbsp;</div></div>
+  <div class="ui node glass" id="n-batt"><div class="lab"><i></i>BATTERY</div><div class="val" id="e-batt">–</div><div class="sub" id="e-batt-sub">&nbsp;</div></div>
+  <div class="ui node glass" id="n-home"><div class="lab"><i></i>HOME</div><div class="val" id="e-home">–</div><div class="sub" id="e-home-sub">&nbsp;</div></div>
+  <div class="ui" id="batt"></div>
+  <div id="flash"></div>
+</div>
+<div class="sheet" id="sheet"><div class="panel">
+  <h2>Connect your Victron</h2>
+  <p>Uses your VRM account so this works at home and away. Your access key is kept only on this phone.</p>
+  <label for="iEmail">VRM email</label><input id="iEmail" type="email" autocomplete="username" autocapitalize="off" spellcheck="false">
+  <label for="iTok">VRM access key</label><input id="iTok" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the key from VRM">
+  <label for="iPid">Installation ID (VRM Portal ID)</label><input id="iPid" autocapitalize="off" spellcheck="false">
+  <div class="err" id="iErr"></div>
+  <div class="btns"><button class="btn" id="bCancel">Cancel</button><button class="btn pri" id="bSave">Connect</button></div>
+</div></div>
+<div style="display:none">
+</div>
+<script src="../mqtt.min.js"></script>
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id)};
+var A=window.Android||null;
+function LOG(m){try{if(A&&A.log)A.log(String(m));else console.log(m)}catch(e){}}
+var CFG={};
+
+var q=new URLSearchParams(location.search);
+var NIGHT=false;
+
+/* fit the 1920x1080 stage to the screen */
+var W=1920,H=1080,stage=$('stage');
+var FS=0;
+function fit(){var de=document.documentElement,vw=de.clientWidth||innerWidth,vh=de.clientHeight||innerHeight;if(!vw||!vh)return;
+  var s=Math.max(vw/W,vh/H);if(Math.abs(s-FS)<1e-4)return;FS=s;stage.style.transform='translate('+(-W/2*s)+'px,'+(-H/2*s)+'px) scale('+s+')'}
+addEventListener('resize',fit);addEventListener('load',fit);fit();setInterval(fit,2000);
+
+/* ================= the photograph, re-lit for the time of day ================= */
+var LAT=33.8414, LON=35.5509;
+function sunPos(d){ // NOAA approximation; returns {az, el} in degrees (az from north, clockwise)
+  var rad=Math.PI/180, jd=d.getTime()/86400000+2440587.5, n=jd-2451545.0;
+  var L=(280.46+0.9856474*n)%360, g=((357.528+0.9856003*n)%360)*rad;
+  var lam=(L+1.915*Math.sin(g)+0.020*Math.sin(2*g))*rad, eps=(23.439-0.0000004*n)*rad;
+  var ra=Math.atan2(Math.cos(eps)*Math.sin(lam),Math.cos(lam)), dec=Math.asin(Math.sin(eps)*Math.sin(lam));
+  var gmst=(18.697374558+24.06570982441908*n)%24, lst=(gmst*15+LON)*rad, ha=lst-ra, la=LAT*rad;
+  var el=Math.asin(Math.sin(la)*Math.sin(dec)+Math.cos(la)*Math.cos(dec)*Math.cos(ha));
+  var az=Math.atan2(-Math.sin(ha),Math.tan(dec)*Math.cos(la)-Math.sin(la)*Math.cos(ha));
+  return {az:(az/rad+360)%360, el:el/rad};
+}
+function crossing(day,target,rising){ // minute of the day the sun passes `target` elevation
+  var b=new Date(day);b.setHours(0,0,0,0);var prev=sunPos(b).el,t;
+  for(var m=2;m<=1440;m+=2){t=new Date(b.getTime()+m*60000);var e=sunPos(t).el;
+    if(rising?(prev<target&&e>=target):(prev>target&&e<=target))return m;prev=e}
+  return rising?360:1020;
+}
+var DAYCACHE={};
+function anchors(now){var k=now.toDateString();if(DAYCACHE[k])return DAYCACHE[k];
+  var r=crossing(now,-0.83,true), st=crossing(now,-0.83,false), L=st-r;
+  var a=[[r-75,'night'],[r-28,'dawn'],[r,'sunrise'],[r+.15*L,'morning'],[r+.35*L,'latemorning'],[r+.5*L,'noon'],
+         [r+.65*L,'afternoon'],[r+.85*L,'golden'],[st,'sunset'],[st+28,'dusk'],[st+75,'night']];
+  return DAYCACHE[k]=a;}
+
+var WX={cloud:0,rain:0,code:0,temp:null,ok:false};
+function overrides(){if(q.get('cloud'))WX.cloud=+q.get('cloud');if(q.get('rain'))WX.rain=+q.get('rain')}
+function now(){var d=new Date();var t=q.get('t');if(t){var p=t.split(':');d.setHours(+p[0],+(p[1]||0),0,0)}return d}
+function setImg(id,src,op){var e=$(id);if(src&&e.getAttribute('src')!==src)e.setAttribute('src',src);var o=String(Math.round(op*100)/100);if(e.style.opacity!==o)e.style.opacity=o}
+function setScene(){
+  overrides();
+  var d=now(),m=d.getHours()*60+d.getMinutes()+d.getSeconds()/60,a=anchors(d),A0=a[0],A1=a[a.length-1];
+  var fa='night',fb='night',w=0;
+  if(m>A0[0]&&m<A1[0])for(var i=0;i<a.length-1;i++)if(m>=a[i][0]&&m<a[i+1][0]){fa=a[i][1];fb=a[i+1][1];w=(m-a[i][0])/(a[i+1][0]-a[i][0]);break}
+  w=w*w*(3-2*w);
+  var sp=sunPos(d),cloud=Math.max(0,Math.min(1,WX.cloud/100)),ovc=Math.max(0,Math.min(1,(cloud-.45)/.45));
+  if(WX.rain>0)ovc=Math.max(ovc,.9);
+  var of=sp.el>6?(WX.rain>0?'rainy':'overcast'):null;
+  setImg('fA','../img/'+fa+'.jpg',1);setImg('fB','../img/'+fb+'.jpg',fb===fa?0:w);
+  if(of)setImg('fC','../img/'+of+'.jpg',ovc*Math.min(1,(sp.el-6)/6));else setImg('fC',null,0);
+  NIGHT=(fa==='night'||fa==='dusk')&&w<.5||(fb==='night'&&w>=.5);
+  $('fog').style.opacity=(WX.code===45||WX.code===48)?'1':'0';
+  $('rain').style.opacity=WX.rain>0?String(Math.min(.5,.2+WX.rain/6)):'0';
+  window.__phase=fa+'>'+fb+' '+w.toFixed(2)+' el '+sp.el.toFixed(1)+' cloud '+WX.cloud;
+}
+var WXN={0:'Clear',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',48:'Fog',51:'Drizzle',53:'Drizzle',55:'Drizzle',56:'Freezing drizzle',57:'Freezing drizzle',
+  61:'Light rain',63:'Rain',65:'Heavy rain',66:'Freezing rain',67:'Freezing rain',71:'Snow',73:'Snow',75:'Heavy snow',77:'Snow',80:'Showers',81:'Showers',82:'Heavy showers',85:'Snow showers',86:'Snow showers',95:'Thunderstorm',96:'Thunderstorm',99:'Thunderstorm'};
+function fetchWeather(){
+  if(CFG.demo&&!q.has('wx'))return;
+  var x=new XMLHttpRequest();
+  x.open('GET','https://api.open-meteo.com/v1/forecast?latitude='+LAT+'&longitude='+LON+'&current=temperature_2m,cloud_cover,precipitation,rain,showers,weather_code,is_day&hourly=temperature_2m,weather_code,is_day,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&forecast_days=2&timezone=auto');
+  x.timeout=15000;
+  x.onload=function(){try{var J=JSON.parse(x.responseText),c=J.current;WX.hourly=J.hourly;WX.daily=J.daily;
+    WX.cloud=c.cloud_cover||0;WX.rain=(c.precipitation||0)+(c.rain||0)+(c.showers||0);WX.code=c.weather_code;WX.temp=c.temperature_2m;WX.ok=true;
+    if([61,63,65,66,67,80,81,82,95,96,99].indexOf(WX.code)>=0)WX.rain=Math.max(WX.rain,.5);
+    setScene();tick();renderWx()}catch(e){LOG('weather '+e)}};
+  x.onerror=function(){LOG('weather offline')};
+  x.send();
+}
+
+setInterval(setScene,60000);setInterval(fetchWeather,15*60000);
+var CLOUDP='M6.5 19h11a4.5 4.5 0 0 0 .6-8.96A6.5 6.5 0 0 0 5.6 11.6 3.75 3.75 0 0 0 6.5 19z';
+function ic(code,day){
+  var sun='<g fill="#ffd23f"><circle cx="12" cy="12" r="4.6"/>'+[0,45,90,135,180,225,270,315].map(function(a){var r=a*Math.PI/180;return '<rect x="11.2" y="1.4" width="1.6" height="3.4" rx=".8" transform="rotate('+a+' 12 12)"/>'}).join('')+'</g>';
+  var moon='<path fill="#f2f4f8" d="M15.8 3.2A8.6 8.6 0 1 0 20.8 16a7 7 0 0 1-5-12.8z"/>';
+  var cloud='<path fill="#f4f6f9" d="'+CLOUDP+'"/>', small=function(g){return '<g transform="translate(-3.5 -4) scale(.72)">'+g+'</g>'};
+  var drops='<g stroke="#5ac8fa" stroke-width="1.7" stroke-linecap="round"><path d="M8.5 21l-.9 2.2M12.5 21l-.9 2.2M16.5 21l-.9 2.2"/></g>';
+  if(code===0)return day?sun:moon;
+  if(code===1||code===2)return small(day?sun:moon)+'<g transform="translate(2 2) scale(.85)">'+cloud+'</g>';
+  if(code===3)return '<g transform="translate(-2 -3) scale(.8)"><path fill="#c9ced6" d="'+CLOUDP+'"/></g>'+'<g transform="translate(2 1) scale(.85)">'+cloud+'</g>';
+  if(code===45||code===48)return '<g stroke="#e6e9ee" stroke-width="1.8" stroke-linecap="round"><path d="M4 9h16M6 13h14M4 17h14"/></g>';
+  if(code>=95)return '<g transform="translate(0 -3)">'+cloud+'</g><path fill="#ffd23f" d="M12.5 15.5l-3 4.6h2.6l-1.2 3.7 4-5.3h-2.6l1.4-3z"/>';
+  if((code>=71&&code<=77)||code===85||code===86)return '<g transform="translate(0 -3)">'+cloud+'</g><g fill="#fff"><circle cx="8.5" cy="21" r="1.1"/><circle cx="12.5" cy="22" r="1.1"/><circle cx="16.5" cy="21" r="1.1"/></g>';
+  return '<g transform="translate(0 -3)">'+cloud+'</g>'+drops;
+}
+
+function demoWx(){var code=WX.rain>0?63:WX.cloud>75?3:WX.cloud>30?2:0,sp=sunPos(now());WX.code=code;WX.temp=sp.el>0?18:14;WX.daily={temperature_2m_max:[21],temperature_2m_min:[11]};WX.ok=true;WX.isDay=sp.el>-.83}
+function renderWx(){
+  if(!WX.ok){if(CFG.demo)demoWx();else{$('wxbox').style.opacity='0';return}}
+  $('wxbox').style.opacity='1';
+  var sp=sunPos(now()),day=WX.isDay!=null?WX.isDay:sp.el>-.83,cur=WX.code||0;
+  $('wxT').textContent=Math.round(WX.temp)+'°';
+  $('wxI').innerHTML='<svg viewBox="0 0 24 24">'+ic(cur,day)+'</svg>';
+  var cn=WXN[cur]||'';if(cur===0)cn=day?'Sunny':'Clear';$('wxC').textContent=cn;
+  var Dd=WX.daily;$('wxHL').textContent=Dd?'H:'+Math.round(Dd.temperature_2m_max[0])+'°  L:'+Math.round(Dd.temperature_2m_min[0])+'°':'';
+  thunder(cur>=95);
+}
+var THT=null;
+function thunder(on){if(!on){if(THT){clearTimeout(THT);THT=null}return}if(THT)return;
+  (function next(){THT=setTimeout(function(){var f=$('flash');f.style.transition='none';f.style.opacity='.5';
+    setTimeout(function(){f.style.transition='opacity .9s';f.style.opacity='0'},90);next()},5000+Math.random()*9000)})()}
+setInterval(renderWx,60000);
+
+/* ================= energy flows ================= */
+var NS='http://www.w3.org/2000/svg';
+var FLOWS={
+  pvA:{d:'M700 252 V235 Q700 213 722 213 H1204',c:'var(--solar)'},
+  pvB:{d:'M780 271 V235 Q780 213 802 213',c:'var(--solar)'},
+  toBatt:{d:'M1335 286 V388',c:'var(--solar)'},
+  batt:{d:'M1376 452 H1490',c:'var(--batt)'},
+  toHome:{d:'M1335 518 V634 Q1335 658 1359 658 H1490',c:'var(--home)'},
+  feed:{d:'M1294 452 H754 Q728 452 728 426 V332',c:'var(--feed)'},
+  grid:{d:'M1622 286 V316 Q1622 338 1600 338 H1359 Q1335 338 1335 362 V388',c:'var(--grid)'}};
+(function(){var svg=$('flows');
+  for(var k in FLOWS){var f=FLOWS[k],g=document.createElementNS(NS,'g');g.setAttribute('class','flow off');g.id='f-'+k;
+    ['flow-glow','flow-base','flow-dots'].forEach(function(cls){var p=document.createElementNS(NS,'path');p.setAttribute('d',f.d);p.setAttribute('class',cls);if(cls!=='flow-dots')p.style.stroke=f.c;g.appendChild(p)});
+    svg.appendChild(g);f.el=g;f.st=''}
+  [[700,252,'var(--solar)'],[780,271,'var(--solar)'],[728,332,'var(--feed)']].forEach(function(p){var c=document.createElementNS(NS,'circle');
+    c.setAttribute('cx',p[0]);c.setAttribute('cy',p[1]);c.setAttribute('r',6.5);c.setAttribute('fill',p[2]);c.setAttribute('stroke','rgba(255,255,255,.9)');c.setAttribute('stroke-width',2);svg.appendChild(c)})})();
+function setFlow(k,w,rev,max){var f=FLOWS[k],a=Math.abs(w||0),on=a>=40;
+  var dur=on?Math.round(Math.max(.8,2.6-1.8*Math.min(a/(max||5000),1))*4)/4:0,st=on+'|'+!!rev+'|'+dur;
+  if(st===f.st)return;f.st=st;
+  f.el.classList.toggle('off',!on);f.el.classList.toggle('rev',!!rev);
+  if(on)f.el.lastChild.style.animationDuration=dur+'s'}
+function setFlowColor(k,c){var f=FLOWS[k];if(f.col===c)return;f.col=c;[f.el.childNodes[0],f.el.childNodes[1]].forEach(function(p){p.style.stroke=c})}
+var BATTSIG='';
+function batteryIcon(pct,flow){
+  var p=pct==null?0:Math.max(3,Math.min(100,pct)),sig=Math.round(p)+'|'+(flow>40);if(sig===BATTSIG)return;BATTSIG=sig;
+  var h=96*p/100,col=p<20?'#ff9d3c':'#3fe08a',col2=p<20?'#e0701a':'#1fb866';
+  var bolt=flow>40?'<path d="M44 46 L33 68 h8 l-3 16 12-23 h-8 z" fill="#fff" opacity=".95"/>':'';
+  $('batt').innerHTML='<svg viewBox="0 0 82 128" width="82" height="128"><defs><linearGradient id="bf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="'+col+'"/><stop offset="1" stop-color="'+col2+'"/></linearGradient><clipPath id="bc"><rect x="13" y="20" width="56" height="96" rx="11"/></clipPath></defs>'+
+    '<rect x="29" y="3" width="24" height="12" rx="4.5" fill="rgba(255,255,255,.85)"/>'+
+    '<rect x="8" y="15" width="66" height="106" rx="16" fill="rgba(12,16,22,.55)" stroke="rgba(255,255,255,.9)" stroke-width="3.5"/>'+
+    '<g clip-path="url(#bc)"><rect x="13" y="'+(116-h)+'" width="56" height="'+h+'" fill="url(#bf)"/><rect x="13" y="'+(116-h)+'" width="56" height="5" fill="rgba(255,255,255,.35)"/></g>'+bolt+'</svg>'}
+function txt(id,v,html){var e=$(id);if(html){if(e.__v!==v){e.__v=v;e.innerHTML=v}}else if(e.textContent!==v)e.textContent=v}
+
+/* ================= clock ================= */
+var DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+var MON=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function tick(){return;var d=new Date();txt('clock',('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2));txt('date',DAYS[d.getDay()]+', '+d.getDate()+' '+MON[d.getMonth()])}
+
+
+/* ================= state + render ================= */
+var S={pvDc:0,pvAc:0,soc:null,bp:0,ttg:null,load:{},grid:{},gen:{},src:null,yield:{},seen:0},GEN=false;
+function sum(o){var t=0,n=0;for(var k in o){if(o[k]!=null){t+=o[k];n++}}return n?t:null}
+function kw(w){return w==null?'–':(Math.abs(w)/1000).toFixed(1)}
+function kwv(w){return w==null?'–':kw(w)+'<small>kW</small>'}
+function fmtDur(s){if(s==null||!isFinite(s)||s<=0)return null;var h=Math.floor(s/3600),m=Math.round(s%3600/60);return h>48?null:(h?h+' h '+m+' min':m+' min')}
+function render(){
+  var pv=(S.pvDc||0)+(S.pvAc||0),load=sum(S.load),grid=sum(S.grid),gen=sum(S.gen);
+  GEN=(S.src===2)||(gen!=null&&Math.abs(gen)>50&&!(grid&&Math.abs(grid)>50));
+  var ext=GEN?gen:grid,bp=S.bp||0,y=sum(S.yield),gridOff=S.src===240&&!GEN;
+  txt('e-solar',kwv(pv),1);txt('e-solar-sub','Today '+(y==null?'–':y.toFixed(1)+' kWh'));
+  $('n-solar').classList.toggle('idle',pv<40);
+  txt('gridName',GEN?'GENERATOR':'GRID');$('n-grid').querySelector('.lab').style.color=GEN?'var(--gen)':'var(--grid)';
+  txt('e-grid',gridOff?'0.0<small>kW</small>':kwv(ext),1);
+  txt('e-grid-sub',gridOff?'Not available':ext==null?' ':ext>40?(GEN?'Supplying the home':'Supplying the home'):ext<-40?'Exporting':(GEN?'Off':'Idle'));
+  $('n-grid').classList.toggle('idle',!(ext>40||ext<-40));
+  txt('e-batt',S.soc==null?'–':Math.round(S.soc)+'<small>%</small>',1);
+  txt('e-batt-sub',bp>40?'Charging · '+kw(bp)+' kW':bp<-40?'Powering home · '+kw(-bp)+' kW':(S.soc>=99?'Full':'Standing by'));
+  var self=load&&load>0?Math.max(0,Math.min(100,Math.round((1-Math.max(0,ext||0)/load)*100))):null;
+  txt('e-home',kwv(load),1);txt('e-home-sub',self==null?' ':self+'% self-powered');
+  var t,s2,imp=Math.max(0,ext||0),dis=Math.max(0,-bp),top=Math.max(pv,dis,imp);
+  if(top<80){t=gridOff?'Grid is off':'Standing by';s2=gridOff?'Your home is backed up':' '}
+  else if(top===pv){t='Running on solar';s2=imp>40?(GEN?'The generator is topping up the home':'The grid is topping up the home'):bp>40?'Extra sunshine is charging the battery':dis>40?'The battery is helping out':'Your home is self-powered'}
+  else if(top===dis){t='Running on battery';s2=pv>80?'Solar is helping'+(imp>40?', with a little from the '+(GEN?'generator':'grid'):''):fmtDur(S.ttg)?'About '+fmtDur(S.ttg)+' of backup at this rate':(imp>40?'The '+(GEN?'generator':'grid')+' is helping out':'Your home is self-powered')}
+  else {t=GEN?'Generator running':'Running on grid';s2=bp>40?'Also charging the battery':pv>80?'Solar is covering part of the load':' '}
+  txt('headT',t);txt('headS',s2||' ');
+  var sp=function(v){return v};
+  setFlow('pvA',pv,false,6000);setFlow('pvB',pv,false,6000);setFlow('toBatt',pv,false,6000);
+  setFlow('batt',bp,bp<0,5000);
+  setFlow('toHome',load,false,6000);setFlow('feed',load,false,6000);
+  setFlowColor('grid',GEN?'var(--gen)':'var(--grid)');setFlow('grid',ext,ext<0,5000);
+  batteryIcon(S.soc,bp);
+}
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k)||'';localStorage.setItem(k,v)}catch(e){return ''}}
+CFG={email:ls('vrm_email'),token:ls('vrm_token'),portal:ls('vrm_portal')||'c0619ab55707'};
+function status(cls,t){$('statusDot').className=cls;txt('statusTxt',t)}
+/* ================= live data via Victron VRM (MQTT over secure websocket) ================= */
+var client=null,kaTimer=0,stTimer=0,DEMO=false,demoT=0,retry=0;
+function num(s){try{var v=JSON.parse(s).value;return typeof v==='number'?v:null}catch(e){return null}}
+function ingest(t,s){var p=t.split('/').slice(2).join('/'),v=num(s),m;
+  if(p==='system/0/Dc/Pv/Power')S.pvDc=v;
+  else if(/^system\/0\/Ac\/PvOn(?:Output|Grid|Genset)\/L\d\/Power$/.test(p)){S.pvAcP=S.pvAcP||{};S.pvAcP[p]=v;S.pvAc=sum(S.pvAcP)||0}
+  else if(p==='system/0/Dc/Battery/Soc')S.soc=v;
+  else if(p==='system/0/Dc/Battery/Power')S.bp=v;
+  else if(p==='system/0/Dc/Battery/TimeToGo')S.ttg=v;
+  else if((m=p.match(/^system\/0\/Ac\/Consumption\/(L\d)\/Power$/)))S.load[m[1]]=v;
+  else if((m=p.match(/^system\/0\/Ac\/Grid\/(L\d)\/Power$/)))S.grid[m[1]]=v;
+  else if((m=p.match(/^system\/0\/Ac\/Genset\/(L\d)\/Power$/)))S.gen[m[1]]=v;
+  else if(p==='system/0/Ac/ActiveIn/Source')S.src=v;
+  else if((m=p.match(/^solarcharger\/(\d+)\/History\/Daily\/0\/Yield$/)))S.yield[m[1]]=v;
+  else return;
+  S.seen=Date.now();if(!rq)rq=setTimeout(function(){rq=0;render()},700)}
+var rq=0;
+function broker(pid){var s=0;for(var i=0;i<pid.length;i++)s+=pid.charCodeAt(i);return 'webmqtt'+(s%128)+'.victronenergy.com'}
+function stopDemo(){DEMO=false;clearInterval(demoT);0}
+function connect(){
+  if(!CFG.email||!CFG.token||!CFG.portal){demo();return}
+  if(typeof mqtt==='undefined'){status('err','Offline');return}
+  stopDemo();
+  if(client){try{client.end(true)}catch(e){}}
+  clearInterval(kaTimer);clearInterval(stTimer);
+  status('','Connecting…');
+  var pid=CFG.portal,c=mqtt.connect('wss://'+broker(pid)+':443/mqtt',{username:CFG.email,password:'Token '+CFG.token,
+    clientId:'iphone_'+Math.random().toString(16).slice(2,10),keepalive:30,reconnectPeriod:0,connectTimeout:10000,protocolVersion:4});
+  client=c;
+  c.on('connect',function(){retry=0;status('','Waiting for data…');
+    ['system/0/Dc/#','system/0/Ac/#','solarcharger/+/History/Daily/0/Yield'].forEach(function(t){c.subscribe('N/'+pid+'/'+t)});
+    var n=0;function k(){if(client===c)c.publish('R/'+pid+'/keepalive',(n++%10===0)?'':'{"keepalive-options":["suppress-republish"]}')}
+    k();kaTimer=setInterval(k,30000);
+    stTimer=setInterval(function(){var age=(Date.now()-S.seen)/1000;if(client!==c)return;
+      if(S.seen&&age<45)status('live','Live');else status('err',S.seen?'Waiting for data…':'Waiting for your system…')},3000)});
+  c.on('message',function(t,p){if(client===c)ingest(t,p.toString())});
+  function lost(e){if(client!==c)return;client=null;clearInterval(kaTimer);clearInterval(stTimer);try{c.end(true)}catch(x){}
+    var msg=e&&e.message||'';
+    if(/auth|Not authorized|Bad user/i.test(msg)){status('err','Sign-in failed');$('iErr').textContent='VRM did not accept the email or key. Check them and try again.';openSheet();return}
+    retry++;status('err','Reconnecting…');setTimeout(connect,Math.min(30000,2000*retry))}
+  c.on('error',lost);c.on('close',function(){lost()});
+}
+function demo(){
+  DEMO=true;status('live','Sample numbers · click ⚙︎ to connect');var t=0;clearInterval(demoT);
+  function step(){t++;var sp=sunPos(now()),day=sp.el>2,pv=day?4300+600*Math.sin(t/7):0,load=1900+400*Math.sin(t/5+1),bp=pv-load;
+    S.pvDc=pv;S.load={L1:load};S.soc=day?76:58;S.bp=bp;S.ttg=bp<0?6.2*3600:null;S.src=240;S.grid={L1:0};S.gen={};S.yield={0:18.4};S.seen=Date.now();render()}
+  step();demoT=setInterval(step,2000);
+}
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'){setScene();fetchWeather();if(!DEMO&&!client)connect()}});
+
+/* ================= settings ================= */
+function openSheet(){$('iEmail').value=CFG.email;$('iTok').value=CFG.token;$('iPid').value=CFG.portal;$('sheet').classList.add('on')}
+function closeSheet(){$('sheet').classList.remove('on');$('iErr').textContent=''}
+$('gear').onclick=openSheet;$('bCancel').onclick=closeSheet;
+$('sheet').onclick=function(e){if(e.target===$('sheet'))closeSheet()};
+$('bSave').onclick=function(){var em=$('iEmail').value.trim(),tk=$('iTok').value.trim().replace(/^Token\s+/i,''),pid=$('iPid').value.trim().toLowerCase();
+  if(!em||!tk||!pid){$('iErr').textContent='Please fill in all three.';return}
+  CFG={email:em,token:tk,portal:pid};ls('vrm_email',em);ls('vrm_token',tk);ls('vrm_portal',pid);closeSheet();S.seen=0;connect()};
+
+render();setScene();renderWx();fetchWeather();connect();
+})();
+</script>
+</div>
+</body>
+</html>
