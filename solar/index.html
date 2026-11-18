@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f15">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Solar">
+<meta name="robots" content="noindex,nofollow">
+<link rel="apple-touch-icon" href="img/icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>Solar Home</title>
+<style>
+:root{--ink:#fff;--ink-2:rgba(255,255,255,.78);--ink-3:rgba(255,255,255,.5);
+  --solar:#ffd24a;--batt:#3fe08a;--home:#56b6ff;--grid:#c7ccd4;--gen:#ff9f43;
+  --bg:#0b0f15;--card:rgba(255,255,255,.07);--line:rgba(255,255,255,.1);
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",Arial,sans-serif;
+  --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{background:var(--bg)}
+body{font-family:var(--font);color:var(--ink);background:var(--bg);-webkit-font-smoothing:antialiased;min-height:100vh;overflow-x:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+/* hero photo, re-lit for the time of day */
+.hero{position:relative;height:min(62vh,560px);min-height:400px;overflow:hidden}
+.hero img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:36% 50%;transition:opacity 2.5s linear}
+.hero::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(180deg,rgba(6,9,14,.55) 0,rgba(6,9,14,0) 26%,rgba(6,9,14,0) 50%,rgba(11,15,21,.85) 86%,var(--bg) 100%)}
+#rain{position:absolute;inset:0;opacity:0;transition:opacity 3s;pointer-events:none;z-index:1;
+  background:repeating-linear-gradient(104deg,rgba(255,255,255,0) 0 14px,rgba(220,230,255,.22) 14px 15px,rgba(255,255,255,0) 15px 31px);background-size:100% 120px;animation:fall .6s linear infinite}
+@keyframes fall{to{background-position:-30px 120px}}
+.top{position:absolute;z-index:2;left:0;right:0;top:0;padding:calc(var(--st) + 14px) 18px 0;display:flex;align-items:flex-start;justify-content:space-between;text-shadow:0 1px 10px rgba(0,0,0,.45)}
+.wx .loc{font-size:15px;font-weight:600;letter-spacing:.01em;color:var(--ink-2)}
+.wx .row{display:flex;align-items:center;gap:8px;margin-top:2px}
+.wx .t{font-size:46px;font-weight:300;letter-spacing:-.02em;line-height:1}
+.wx svg{width:38px;height:38px;overflow:visible;filter:drop-shadow(0 2px 8px rgba(0,0,0,.35))}
+.wx .c{font-size:14px;font-weight:500;color:var(--ink-2);margin-top:3px}
+.right{display:flex;gap:8px;align-items:center}
+.pill{display:flex;align-items:center;gap:7px;padding:7px 12px 7px 13px;border-radius:20px;background:rgba(10,14,20,.45);border:1px solid rgba(255,255,255,.14);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);font-size:13px;font-weight:600;text-shadow:none}
+.pill i{width:8px;height:8px;border-radius:50%;background:#8a919c}
+.pill i.live{background:var(--batt);box-shadow:0 0 8px var(--batt)} .pill i.err{background:#ff8a3c}
+.gear{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:rgba(10,14,20,.45);border:1px solid rgba(255,255,255,.14);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+.gear svg{width:18px;height:18px;stroke:#fff;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.head{position:absolute;z-index:2;left:20px;right:20px;bottom:18px}
+.head h1{font-size:32px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.head p{font-size:16px;font-weight:500;color:var(--ink-2);margin-top:6px}
+main{padding:0 14px calc(var(--sb) + 24px);max-width:640px;margin:0 auto}
+.banner{display:none;margin:4px 2px 14px;padding:12px 14px;border-radius:16px;background:rgba(255,210,74,.12);border:1px solid rgba(255,210,74,.35);font-size:14px;line-height:1.35}
+.banner b{color:var(--solar)} .banner.on{display:block}
+/* power flow */
+.flow{position:relative;border-radius:24px;background:var(--card);border:1px solid var(--line);padding:6px 0 2px;margin-bottom:12px}
+.flow svg{display:block;width:100%;height:auto}
+.fl-base{fill:none;stroke-width:3;stroke-linecap:round;opacity:.9}
+.fl-glow{fill:none;stroke-width:9;stroke-linecap:round;opacity:.22}
+.fl-dots{fill:none;stroke:#fff;stroke-width:5;stroke-linecap:round;stroke-dasharray:1 22;animation:run 1.4s linear infinite}
+.fl.rev .fl-dots{animation-direction:reverse}
+.fl.off .fl-dots,.fl.off .fl-glow{display:none} .fl.off .fl-base{opacity:.25;stroke-dasharray:2 7}
+@keyframes run{to{stroke-dashoffset:-23}}
+.nd circle.ring{fill:#141a23;stroke-width:2.5}
+.nd text{fill:#fff;font-family:var(--font);text-anchor:middle}
+.nd .v{font-size:17px;font-weight:700} .nd .l{font-size:11px;font-weight:600;letter-spacing:.08em;fill:rgba(255,255,255,.6)}
+/* tiles */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{border-radius:22px;background:var(--card);border:1px solid var(--line);padding:14px 15px 15px;min-height:118px}
+.tile .lab{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;letter-spacing:.08em}
+.tile .lab i{width:9px;height:9px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor}
+.tile .val{font-size:30px;font-weight:700;letter-spacing:-.02em;margin-top:8px;font-variant-numeric:tabular-nums}
+.tile .val small{font-size:18px;font-weight:500;color:var(--ink-2);margin-left:3px}
+.tile .sub{font-size:13.5px;font-weight:500;color:var(--ink-2);margin-top:3px}
+.tile.idle .val{color:var(--ink-3)}
+#t-solar .lab{color:var(--solar)} #t-grid .lab{color:var(--grid)} #t-batt .lab{color:var(--batt)} #t-home .lab{color:var(--home)}
+.bar{height:6px;border-radius:3px;background:rgba(255,255,255,.12);margin-top:9px;overflow:hidden}
+.bar b{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#1fb866,#3fe08a);transition:width 1s}
+.foot{text-align:center;font-size:12.5px;color:var(--ink-3);margin-top:16px}
+/* settings sheet */
+.sheet{position:fixed;inset:0;z-index:10;display:none;background:rgba(0,0,0,.5)}
+.sheet.on{display:block}
+.panel{position:absolute;left:0;right:0;bottom:0;background:#151a22;border-radius:24px 24px 0 0;padding:22px 20px calc(var(--sb) + 22px);max-width:640px;margin:0 auto;border-top:1px solid var(--line)}
+.panel h2{font-size:21px;font-weight:700}
+.panel p{font-size:14px;color:var(--ink-2);line-height:1.4;margin:6px 0 14px}
+.panel label{display:block;font-size:13px;font-weight:600;color:var(--ink-2);margin:12px 0 6px}
+.panel input{width:100%;font:inherit;font-size:16px;color:#fff;background:#0d1117;border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:12px 13px;-webkit-appearance:none}
+.btns{display:flex;gap:10px;margin-top:18px}
+.btn{flex:1;padding:14px;border-radius:14px;font-size:16px;font-weight:600;background:rgba(255,255,255,.1)}
+.btn.pri{background:var(--batt);color:#06210f}
+.err{color:#ff9d6b;font-size:13.5px;margin-top:10px;min-height:18px}
+</style>
+</head>
+<body>
+<section class="hero">
+  <img id="fA" alt=""><img id="fB" alt="" style="opacity:0"><img id="fC" alt="" style="opacity:0">
+  <div id="rain"></div>
+  <div class="top">
+    <div class="wx" id="wx" style="visibility:hidden"><div class="loc">Yarze</div><div class="row"><div class="t" id="wxT">--°</div><span id="wxI"></span></div><div class="c" id="wxC"></div></div>
+    <div class="right"><div class="pill"><i id="dot"></i><span id="stt">Connecting…</span></div>
+      <button class="gear" id="gear" aria-label="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
+  </div>
+  <div class="head"><h1 id="headT">&nbsp;</h1><p id="headS">&nbsp;</p></div>
+</section>
+<main>
+  <div class="banner" id="banner"><b>Sample numbers.</b> Tap the gear to connect your Victron account and see your real system.</div>
+  <div class="flow"><svg id="fsvg" viewBox="0 0 360 250"></svg></div>
+  <div class="tiles">
+    <div class="tile" id="t-solar"><div class="lab"><i></i>SOLAR</div><div class="val" id="v-solar">–</div><div class="sub" id="s-solar">&nbsp;</div></div>
+    <div class="tile" id="t-grid"><div class="lab"><i></i><span id="gridName">GRID</span></div><div class="val" id="v-grid">–</div><div class="sub" id="s-grid">&nbsp;</div></div>
+    <div class="tile" id="t-batt"><div class="lab"><i></i>BATTERY</div><div class="val" id="v-batt">–</div><div class="sub" id="s-batt">&nbsp;</div><div class="bar"><b id="bbar" style="width:0"></b></div></div>
+    <div class="tile" id="t-home"><div class="lab"><i></i>HOME</div><div class="val" id="v-home">–</div><div class="sub" id="s-home">&nbsp;</div></div>
+  </div>
+  <div class="foot" id="foot">&nbsp;</div>
+</main>
+<div class="sheet" id="sheet"><div class="panel">
+  <h2>Connect your Victron</h2>
+  <p>Uses your VRM account so this works at home and away. Your access key is kept only on this phone.</p>
+  <label for="iEmail">VRM email</label><input id="iEmail" type="email" autocomplete="username" autocapitalize="off" spellcheck="false">
+  <label for="iTok">VRM access key</label><input id="iTok" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste the key from VRM">
+  <label for="iPid">Installation ID (VRM Portal ID)</label><input id="iPid" autocapitalize="off" spellcheck="false">
+  <div class="err" id="iErr"></div>
+  <div class="btns"><button class="btn" id="bCancel">Cancel</button><button class="btn pri" id="bSave">Connect</button></div>
+</div></div>
+<script src="mqtt.min.js"></script>
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id)};
+var q=new URLSearchParams(location.search);
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k)||'';if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v)}catch(e){return ''}}
+var CFG={email:ls('vrm_email'),token:ls('vrm_token'),portal:ls('vrm_portal')||'c0619ab55707'};
+
+var LAT=33.8414, LON=35.5509;
+function sunPos(d){ // NOAA approximation; returns {az, el} in degrees (az from north, clockwise)
+  var rad=Math.PI/180, jd=d.getTime()/86400000+2440587.5, n=jd-2451545.0;
+  var L=(280.46+0.9856474*n)%360, g=((357.528+0.9856003*n)%360)*rad;
+  var lam=(L+1.915*Math.sin(g)+0.020*Math.sin(2*g))*rad, eps=(23.439-0.0000004*n)*rad;
+  var ra=Math.atan2(Math.cos(eps)*Math.sin(lam),Math.cos(lam)), dec=Math.asin(Math.sin(eps)*Math.sin(lam));
+  var gmst=(18.697374558+24.06570982441908*n)%24, lst=(gmst*15+LON)*rad, ha=lst-ra, la=LAT*rad;
+  var el=Math.asin(Math.sin(la)*Math.sin(dec)+Math.cos(la)*Math.cos(dec)*Math.cos(ha));
+  var az=Math.atan2(-Math.sin(ha),Math.tan(dec)*Math.cos(la)-Math.sin(la)*Math.cos(ha));
+  return {az:(az/rad+360)%360, el:el/rad};
+}
+function crossing(day,target,rising){ // minute of the day the sun passes `target` elevation
+  var b=new Date(day);b.setHours(0,0,0,0);var prev=sunPos(b).el,t;
+  for(var m=2;m<=1440;m+=2){t=new Date(b.getTime()+m*60000);var e=sunPos(t).el;
+    if(rising?(prev<target&&e>=target):(prev>target&&e<=target))return m;prev=e}
+  return rising?360:1020;
+}
+var DAYCACHE={};
+function anchors(now){var k=now.toDateString();if(DAYCACHE[k])return DAYCACHE[k];
+  var r=crossing(now,-0.83,true), st=crossing(now,-0.83,false), L=st-r;
+  var a=[[r-75,'night'],[r-28,'dawn'],[r,'sunrise'],[r+.15*L,'morning'],[r+.35*L,'latemorning'],[r+.5*L,'noon'],
+         [r+.65*L,'afternoon'],[r+.85*L,'golden'],[st,'sunset'],[st+28,'dusk'],[st+75,'night']];
+  return DAYCACHE[k]=a;}
+
+var WX={cloud:0,rain:0,code:0,temp:null,ok:false};
+function overrides(){if(q.get('cloud'))WX.cloud=+q.get('cloud');if(q.get('rain'))WX.rain=+q.get('rain')}
+function now(){var d=new Date();var t=q.get('t');if(t){var p=t.split(':');d.setHours(+p[0],+(p[1]||0),0,0)}return d}
+function setImg(id,n,op){var e=$(id),src=n?'img/'+n+'.jpg':null;if(src&&e.getAttribute('src')!==src)e.setAttribute('src',src);var o=String(Math.round(op*100)/100);if(e.style.opacity!==o)e.style.opacity=o}
+function setScene(){
+  overrides();
+  var d=now(),m=d.getHours()*60+d.getMinutes(),a=anchors(d),fa='night',fb='night',w=0;
+  if(m>a[0][0]&&m<a[a.length-1][0])for(var i=0;i<a.length-1;i++)if(m>=a[i][0]&&m<a[i+1][0]){fa=a[i][1];fb=a[i+1][1];w=(m-a[i][0])/(a[i+1][0]-a[i][0]);break}
+  w=w*w*(3-2*w);
+  var sp=sunPos(d),ovc=Math.max(0,Math.min(1,(WX.cloud/100-.45)/.45));if(WX.rain>0)ovc=Math.max(ovc,.9);
+  setImg('fA',fa,1);setImg('fB',fb,fb===fa?0:w);
+  if(sp.el>6)setImg('fC',WX.rain>0?'rainy':'overcast',ovc*Math.min(1,(sp.el-6)/6));else setImg('fC',null,0);
+  $('rain').style.opacity=WX.rain>0?'.8':'0';
+}
+var WXN={0:'Clear',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',48:'Fog',51:'Drizzle',53:'Drizzle',55:'Drizzle',56:'Freezing drizzle',57:'Freezing drizzle',
+  61:'Light rain',63:'Rain',65:'Heavy rain',66:'Freezing rain',67:'Freezing rain',71:'Snow',73:'Snow',75:'Heavy snow',77:'Snow',80:'Showers',81:'Showers',82:'Heavy showers',85:'Snow showers',86:'Snow showers',95:'Thunderstorm',96:'Thunderstorm',99:'Thunderstorm'};
+function fetchWeather(){
+  if(CFG.demo&&!q.has('wx'))return;
+  var x=new XMLHttpRequest();
+  x.open('GET','https://api.open-meteo.com/v1/forecast?latitude='+LAT+'&longitude='+LON+'&current=temperature_2m,cloud_cover,precipitation,rain,showers,weather_code,is_day&hourly=temperature_2m,weather_code,is_day,precipitation_probability&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset&forecast_days=2&timezone=auto');
+  x.timeout=15000;
+  x.onload=function(){try{var J=JSON.parse(x.responseText),c=J.current;WX.hourly=J.hourly;WX.daily=J.daily;
+    WX.cloud=c.cloud_cover||0;WX.rain=(c.precipitation||0)+(c.rain||0)+(c.showers||0);WX.code=c.weather_code;WX.temp=c.temperature_2m;WX.ok=true;
+    if([61,63,65,66,67,80,81,82,95,96,99].indexOf(WX.code)>=0)WX.rain=Math.max(WX.rain,.5);
+    setScene();tick();renderWx()}catch(e){LOG('weather '+e)}};
+  x.onerror=function(){LOG('weather offline')};
+  x.send();
+}
+
+var CLOUDP='M6.5 19h11a4.5 4.5 0 0 0 .6-8.96A6.5 6.5 0 0 0 5.6 11.6 3.75 3.75 0 0 0 6.5 19z';
+function ic(code,day){
+  var sun='<g fill="#ffd23f"><circle cx="12" cy="12" r="4.6"/>'+[0,45,90,135,180,225,270,315].map(function(a){var r=a*Math.PI/180;return '<rect x="11.2" y="1.4" width="1.6" height="3.4" rx=".8" transform="rotate('+a+' 12 12)"/>'}).join('')+'</g>';
+  var moon='<path fill="#f2f4f8" d="M15.8 3.2A8.6 8.6 0 1 0 20.8 16a7 7 0 0 1-5-12.8z"/>';
+  var cloud='<path fill="#f4f6f9" d="'+CLOUDP+'"/>', small=function(g){return '<g transform="translate(-3.5 -4) scale(.72)">'+g+'</g>'};
+  var drops='<g stroke="#5ac8fa" stroke-width="1.7" stroke-linecap="round"><path d="M8.5 21l-.9 2.2M12.5 21l-.9 2.2M16.5 21l-.9 2.2"/></g>';
+  if(code===0)return day?sun:moon;
+  if(code===1||code===2)return small(day?sun:moon)+'<g transform="translate(2 2) scale(.85)">'+cloud+'</g>';
+  if(code===3)return '<g transform="translate(-2 -3) scale(.8)"><path fill="#c9ced6" d="'+CLOUDP+'"/></g>'+'<g transform="translate(2 1) scale(.85)">'+cloud+'</g>';
+  if(code===45||code===48)return '<g stroke="#e6e9ee" stroke-width="1.8" stroke-linecap="round"><path d="M4 9h16M6 13h14M4 17h14"/></g>';
+  if(code>=95)return '<g transform="translate(0 -3)">'+cloud+'</g><path fill="#ffd23f" d="M12.5 15.5l-3 4.6h2.6l-1.2 3.7 4-5.3h-2.6l1.4-3z"/>';
+  if((code>=71&&code<=77)||code===85||code===86)return '<g transform="translate(0 -3)">'+cloud+'</g><g fill="#fff"><circle cx="8.5" cy="21" r="1.1"/><circle cx="12.5" cy="22" r="1.1"/><circle cx="16.5" cy="21" r="1.1"/></g>';
+  return '<g transform="translate(0 -3)">'+cloud+'</g>'+drops;
+}
+
+function renderWx(){if(!WX.ok)return;var sp=sunPos(now()),day=WX.isDay!=null?WX.isDay:sp.el>-.83,cur=WX.code||0;
+  $('wx').style.visibility='visible';$('wxT').textContent=Math.round(WX.temp)+'°';
+  $('wxI').innerHTML='<svg viewBox="0 0 24 24">'+ic(cur,day)+'</svg>';
+  var cn=WXN[cur]||'';if(cur===0)cn=day?'Sunny':'Clear';var Dd=WX.daily;
+  $('wxC').textContent=cn+(Dd?'  ·  H:'+Math.round(Dd.temperature_2m_max[0])+'° L:'+Math.round(Dd.temperature_2m_min[0])+'°':'')}
+function tick(){}
+function LOG(m){try{console.log(m)}catch(e){}}
+
+/* ================= power-flow diagram ================= */
+var NS='http://www.w3.org/2000/svg',svg=$('fsvg'),HUB=[180,125];
+var NODES={solar:[62,62,'var(--solar)','SOLAR'],grid:[298,62,'var(--grid)','GRID'],batt:[62,190,'var(--batt)','BATTERY'],home:[298,190,'var(--home)','HOME']};
+var FL={};
+function el(n,a,p){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);(p||svg).appendChild(e);return e}
+(function(){
+  for(var k in NODES){var n=NODES[k],g=el('g',{'class':'fl off'});
+    var d='M'+n[0]+' '+n[1]+' L'+(n[0]<HUB[0]?HUB[0]-70:HUB[0]+70)+' '+n[1]+' Q'+HUB[0]+' '+n[1]+' '+HUB[0]+' '+(n[1]<HUB[1]?HUB[1]-26:HUB[1]+26)+' L'+HUB[0]+' '+HUB[1];
+    ['fl-glow','fl-base','fl-dots'].forEach(function(c){var p=el('path',{d:d,'class':c},g);if(c!=='fl-dots')p.style.stroke=n[2]});
+    FL[k]={g:g,st:'',col:n[2]}}
+  el('circle',{cx:HUB[0],cy:HUB[1],r:15,fill:'#1b222d',stroke:'rgba(255,255,255,.55)','stroke-width':2});
+  el('path',{d:'M182 115 l-7 12 h6 l-3 9 9-13 h-6 z',fill:'#fff',opacity:.9});
+  for(var k2 in NODES){var n2=NODES[k2],g2=el('g',{'class':'nd'});
+    var c=el('circle',{'class':'ring',cx:n2[0],cy:n2[1],r:40},g2);c.style.stroke=n2[2];NODES[k2].ring=c;
+    NODES[k2].v=el('text',{'class':'v',x:n2[0],y:n2[1]+3},g2);NODES[k2].l=el('text',{'class':'l',x:n2[0],y:n2[1]+19},g2);NODES[k2].l.textContent=n2[3]}
+})();
+function setFlow(k,w,out,max){var f=FL[k],a=Math.abs(w||0),on=a>=40,dur=on?Math.round(Math.max(.6,2-1.4*Math.min(a/(max||5000),1))*4)/4:0,st=on+'|'+out+'|'+dur;
+  if(st===f.st)return;f.st=st;f.g.classList.toggle('off',!on);f.g.classList.toggle('rev',!!out);if(on)f.g.lastChild.style.animationDuration=dur+'s'}
+function setCol(k,c){var f=FL[k];if(f.col===c)return;f.col=c;f.g.childNodes[0].style.stroke=c;f.g.childNodes[1].style.stroke=c;NODES[k].ring.style.stroke=c}
+function nv(k,t){if(NODES[k].v.textContent!==t)NODES[k].v.textContent=t}
+function txt(id,v,html){var e=$(id);if(html){if(e.__v!==v){e.__v=v;e.innerHTML=v}}else if(e.textContent!==v)e.textContent=v}
+
+/* ================= state + render ================= */
+var S={pvDc:0,pvAc:0,soc:null,bp:0,ttg:null,load:{},grid:{},gen:{},src:null,yield:{},seen:0},GEN=false;
+function sum(o){var t=0,n=0;for(var k in o){if(o[k]!=null){t+=o[k];n++}}return n?t:null}
+function kw(w){return w==null?'–':(Math.abs(w)/1000).toFixed(1)}
+function kwv(w){return w==null?'–':kw(w)+'<small>kW</small>'}
+function fmtDur(s){if(s==null||!isFinite(s)||s<=0)return null;var h=Math.floor(s/3600),m=Math.round(s%3600/60);return h>48?null:(h?h+' h '+m+' min':m+' min')}
+function render(){
+  var pv=(S.pvDc||0)+(S.pvAc||0),load=sum(S.load),grid=sum(S.grid),gen=sum(S.gen);
+  GEN=(S.src===2)||(gen!=null&&Math.abs(gen)>50&&!(grid&&Math.abs(grid)>50));
+  var ext=GEN?gen:grid,bp=S.bp||0,y=sum(S.yield),gridOff=S.src===240&&!GEN;
+  txt('v-solar',kwv(pv),1);txt('s-solar','Today '+(y==null?'–':y.toFixed(1)+' kWh'));$('t-solar').classList.toggle('idle',pv<40);
+  txt('gridName',GEN?'GENERATOR':'GRID');$('t-grid').querySelector('.lab').style.color=GEN?'var(--gen)':'var(--grid)';NODES.grid.l.textContent=GEN?'GENERATOR':'GRID';
+  txt('v-grid',gridOff?'0.0<small>kW</small>':kwv(ext),1);
+  txt('s-grid',gridOff?'Not available':ext==null?' ':ext>40?'Supplying power':ext<-40?'Exporting':(GEN?'Off':'Idle'));$('t-grid').classList.toggle('idle',!(ext>40||ext<-40));
+  txt('v-batt',S.soc==null?'–':Math.round(S.soc)+'<small>%</small>',1);$('bbar').style.width=(S.soc||0)+'%';
+  txt('s-batt',bp>40?'Charging · '+kw(bp)+' kW':bp<-40?'Supplying '+kw(-bp)+' kW':(S.soc>=99?'Full':'Standing by'));
+  var self=load&&load>0?Math.max(0,Math.min(100,Math.round((1-Math.max(0,ext||0)/load)*100))):null;
+  txt('v-home',kwv(load),1);txt('s-home',self==null?' ':self+'% self-powered');
+  var t,s2,imp=Math.max(0,ext||0),dis=Math.max(0,-bp),top=Math.max(pv,dis,imp);
+  if(top<80){t=gridOff?'Grid is off':'Standing by';s2=gridOff?'Your home is backed up':' '}
+  else if(top===pv){t='Running on solar';s2=imp>40?(GEN?'The generator is topping up the home':'The grid is topping up the home'):bp>40?'Extra sunshine is charging the battery':dis>40?'The battery is helping out':'Your home is self-powered'}
+  else if(top===dis){t='Running on battery';s2=pv>80?'Solar is helping'+(imp>40?', with a little from the '+(GEN?'generator':'grid'):''):fmtDur(S.ttg)?'About '+fmtDur(S.ttg)+' of backup at this rate':(imp>40?'The '+(GEN?'generator':'grid')+' is helping out':'Your home is self-powered')}
+  else {t=GEN?'Generator running':'Running on grid';s2=bp>40?'Also charging the battery':pv>80?'Solar is covering part of the load':' '}
+  txt('headT',t);txt('headS',s2||' ');
+  nv('solar',kw(pv)+' kW');nv('grid',gridOff?'Off':kw(ext)+' kW');nv('batt',S.soc==null?'–':Math.round(S.soc)+'%');nv('home',kw(load)+' kW');
+  setCol('grid',GEN?'var(--gen)':'var(--grid)');
+  setFlow('solar',pv,false,6000);setFlow('grid',ext,ext<0,5000);setFlow('batt',bp,bp>0,5000);setFlow('home',load,true,6000);
+}
+var ST={cls:'',txt:''};
+function status(cls,t){ST={cls:cls,txt:t};$('dot').className=cls;txt('stt',t)}
+setInterval(function(){if(!S.seen)return;var s=Math.round((Date.now()-S.seen)/1000);txt('foot',DEMO?'Sample numbers':'Updated '+(s<3?'just now':s<90?s+' s ago':Math.round(s/60)+' min ago'))},1000);
+
+/* ================= live data via Victron VRM (MQTT over secure websocket) ================= */
+var client=null,kaTimer=0,stTimer=0,DEMO=false,demoT=0,retry=0;
+function num(s){try{var v=JSON.parse(s).value;return typeof v==='number'?v:null}catch(e){return null}}
+function ingest(t,s){var p=t.split('/').slice(2).join('/'),v=num(s),m;
+  if(p==='system/0/Dc/Pv/Power')S.pvDc=v;
+  else if(/^system\/0\/Ac\/PvOn(?:Output|Grid|Genset)\/L\d\/Power$/.test(p)){S.pvAcP=S.pvAcP||{};S.pvAcP[p]=v;S.pvAc=sum(S.pvAcP)||0}
+  else if(p==='system/0/Dc/Battery/Soc')S.soc=v;
+  else if(p==='system/0/Dc/Battery/Power')S.bp=v;
+  else if(p==='system/0/Dc/Battery/TimeToGo')S.ttg=v;
+  else if((m=p.match(/^system\/0\/Ac\/Consumption\/(L\d)\/Power$/)))S.load[m[1]]=v;
+  else if((m=p.match(/^system\/0\/Ac\/Grid\/(L\d)\/Power$/)))S.grid[m[1]]=v;
+  else if((m=p.match(/^system\/0\/Ac\/Genset\/(L\d)\/Power$/)))S.gen[m[1]]=v;
+  else if(p==='system/0/Ac/ActiveIn/Source')S.src=v;
+  else if((m=p.match(/^solarcharger\/(\d+)\/History\/Daily\/0\/Yield$/)))S.yield[m[1]]=v;
+  else return;
+  S.seen=Date.now();if(!rq)rq=setTimeout(function(){rq=0;render()},700)}
+var rq=0;
+function broker(pid){var s=0;for(var i=0;i<pid.length;i++)s+=pid.charCodeAt(i);return 'webmqtt'+(s%128)+'.victronenergy.com'}
+function stopDemo(){DEMO=false;clearInterval(demoT);$('banner').classList.remove('on')}
+function connect(){
+  if(!CFG.email||!CFG.token||!CFG.portal){demo();return}
+  if(typeof mqtt==='undefined'){status('err','Offline');return}
+  stopDemo();
+  if(client){try{client.end(true)}catch(e){}}
+  clearInterval(kaTimer);clearInterval(stTimer);
+  status('','Connecting…');
+  var pid=CFG.portal,c=mqtt.connect('wss://'+broker(pid)+':443/mqtt',{username:CFG.email,password:'Token '+CFG.token,
+    clientId:'iphone_'+Math.random().toString(16).slice(2,10),keepalive:30,reconnectPeriod:0,connectTimeout:10000,protocolVersion:4});
+  client=c;
+  c.on('connect',function(){retry=0;status('','Waiting for data…');
+    ['system/0/Dc/#','system/0/Ac/#','solarcharger/+/History/Daily/0/Yield'].forEach(function(t){c.subscribe('N/'+pid+'/'+t)});
+    var n=0;function k(){if(client===c)c.publish('R/'+pid+'/keepalive',(n++%10===0)?'':'{"keepalive-options":["suppress-republish"]}')}
+    k();kaTimer=setInterval(k,30000);
+    stTimer=setInterval(function(){var age=(Date.now()-S.seen)/1000;if(client!==c)return;
+      if(S.seen&&age<45)status('live','Live');else status('err',S.seen?'Waiting for data…':'Waiting for your system…')},3000)});
+  c.on('message',function(t,p){if(client===c)ingest(t,p.toString())});
+  function lost(e){if(client!==c)return;client=null;clearInterval(kaTimer);clearInterval(stTimer);try{c.end(true)}catch(x){}
+    var msg=e&&e.message||'';
+    if(/auth|Not authorized|Bad user/i.test(msg)){status('err','Sign-in failed');$('iErr').textContent='VRM did not accept the email or key. Check them and try again.';openSheet();return}
+    retry++;status('err','Reconnecting…');setTimeout(connect,Math.min(30000,2000*retry))}
+  c.on('error',lost);c.on('close',function(){lost()});
+}
+function demo(){
+  DEMO=true;status('live','Sample');$('banner').classList.add('on');var t=0;clearInterval(demoT);
+  function step(){t++;var sp=sunPos(now()),day=sp.el>2,pv=day?4300+600*Math.sin(t/7):0,load=1900+400*Math.sin(t/5+1),bp=pv-load;
+    S.pvDc=pv;S.load={L1:load};S.soc=day?76:58;S.bp=bp;S.ttg=bp<0?6.2*3600:null;S.src=240;S.grid={L1:0};S.gen={};S.yield={0:18.4};S.seen=Date.now();render()}
+  step();demoT=setInterval(step,2000);
+}
+document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'){setScene();fetchWeather();if(!DEMO&&!client)connect()}});
+
+/* ================= settings ================= */
+function openSheet(){$('iEmail').value=CFG.email;$('iTok').value=CFG.token;$('iPid').value=CFG.portal;$('sheet').classList.add('on')}
+function closeSheet(){$('sheet').classList.remove('on');$('iErr').textContent=''}
+$('gear').onclick=openSheet;$('banner').onclick=openSheet;$('bCancel').onclick=closeSheet;
+$('sheet').onclick=function(e){if(e.target===$('sheet'))closeSheet()};
+$('bSave').onclick=function(){var em=$('iEmail').value.trim(),tk=$('iTok').value.trim().replace(/^Token\s+/i,''),pid=$('iPid').value.trim().toLowerCase();
+  if(!em||!tk||!pid){$('iErr').textContent='Please fill in all three.';return}
+  CFG={email:em,token:tk,portal:pid};ls('vrm_email',em);ls('vrm_token',tk);ls('vrm_portal',pid);closeSheet();S.seen=0;connect()};
+
+setScene();setInterval(setScene,60000);fetchWeather();setInterval(fetchWeather,15*60000);setInterval(renderWx,60000);
+render();connect();
+})();
+</script>
+</body>
+</html>
