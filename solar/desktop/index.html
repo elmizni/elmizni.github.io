@@ -16,6 +16,9 @@ html,body{height:100%;background:#05070b;overflow:hidden}
 body{font-family:var(--font);color:var(--ink);-webkit-font-smoothing:antialiased}
 #stage{position:fixed;left:50%;top:50%;width:1920px;height:1080px;transform-origin:0 0;overflow:hidden;background:#0b1017}
 .frame{position:absolute;inset:0;width:1920px;height:1080px;transition:opacity 2.5s linear}
+#gl{opacity:0;transition:opacity 1.5s ease}
+.live #gl{opacity:1}
+.live #rain,.live #fog{display:none}
 #rain{position:absolute;inset:0;opacity:0;transition:opacity 3s;pointer-events:none;overflow:hidden}
 #rain .r{position:absolute;left:0;top:-1080px;width:1920px;height:2160px;background:repeating-linear-gradient(104deg,rgba(255,255,255,0) 0 22px,rgba(220,230,255,.25) 22px 24px,rgba(255,255,255,0) 24px 47px);background-size:100% 240px;animation:fall .9s linear infinite;will-change:transform}
 @keyframes fall{to{transform:translate3d(-60px,1080px,0)}}
@@ -130,7 +133,7 @@ body{font-family:var(--font);color:var(--ink);-webkit-font-smoothing:antialiased
 </head>
 <body>
 <div id="stage">
-  <img class="frame" id="fA" alt=""><img class="frame" id="fB" alt="" style="opacity:0"><img class="frame" id="fC" alt="" style="opacity:0">
+  <img class="frame" id="fA" alt=""><img class="frame" id="fB" alt="" style="opacity:0"><img class="frame" id="fC" alt="" style="opacity:0"><canvas class="frame" id="gl" width="1280" height="720"></canvas>
   <div id="rain"><div class="r"></div></div><div id="fog"></div>
   <div class="scrim"></div>
   <svg id="flows" viewBox="0 0 1920 1080"></svg>
@@ -160,6 +163,7 @@ body{font-family:var(--font);color:var(--ink);-webkit-font-smoothing:antialiased
 <div style="display:none">
 </div>
 <script src="../mqtt.min.js"></script>
+<script src="../engine.js"></script>
 <script>
 (function(){
 'use strict';
@@ -209,6 +213,7 @@ function now(){var d=new Date();var t=q.get('t');if(t){var p=t.split(':');d.setH
 function setImg(id,src,op){var e=$(id);if(src&&e.getAttribute('src')!==src)e.setAttribute('src',src);var o=String(Math.round(op*100)/100);if(e.style.opacity!==o)e.style.opacity=o}
 function setScene(){
   overrides();
+  if(SCN&&!SCN.failed)SCN.setWeather(WX);
   var d=now(),m=d.getHours()*60+d.getMinutes()+d.getSeconds()/60,a=anchors(d),A0=a[0],A1=a[a.length-1];
   var fa='night',fb='night',w=0;
   if(m>A0[0]&&m<A1[0])for(var i=0;i<a.length-1;i++)if(m>=a[i][0]&&m<a[i+1][0]){fa=a[i][1];fb=a[i+1][1];w=(m-a[i][0])/(a[i+1][0]-a[i][0]);break}
@@ -405,7 +410,28 @@ $('bSave').onclick=function(){var em=$('iEmail').value.trim(),tk=$('iTok').value
   if(!em||!tk||!pid){$('iErr').textContent='Please fill in all three.';return}
   CFG={email:em,token:tk,portal:pid};ls('vrm_email',em);ls('vrm_token',tk);ls('vrm_portal',pid);closeSheet();S.seen=0;connect()};
 
-render();setScene();renderWx();fetchWeather();connect();
+
+/* ================= the live scene (falls back to the still frames if this screen cannot draw it) ================= */
+var SCN=null;
+function startScene(){
+  if(!window.SolarScene||q.has('static'))return;
+  try{var im=new Image();
+    SCN=SolarScene({canvas:$('gl'),plate:im,style:'cinematic',maxWidth:1920,fps:30,now:now,
+      onReady:function(){stage.classList.add('live');LOG('live scene on')},
+      onFail:function(m){LOG('live scene off: '+m);stage.classList.remove('live');SCN=null;setScene()},
+      onPerf:function(m){LOG('scene '+m)}});
+    SCN.setWeather(WX);im.src='../img/plate.jpg';
+  }catch(e){LOG('live scene unavailable: '+(e&&e.message));SCN=null}
+}
+/* the camera drifts slowly, so the ends of the flow lines that touch the photo drift with it */
+function camPt(x,y){var c=SCN.cam;return [Math.round((((x/1920-c[0]-.5)*c[2]+.5)*1920)*2)/2,Math.round((((y/1080-c[1]-.5)*c[2]+.5)*1080)*2)/2]}
+function setD(k,d){var f=FLOWS[k];if(f.d===d)return;f.d=d;for(var i=0;i<3;i++)f.el.childNodes[i].setAttribute('d',d)}
+setInterval(function(){if(!SCN||!SCN.running)return;var a=camPt(700,252),b=camPt(780,271),f=camPt(728,332),cs=$('flows').querySelectorAll('circle');
+  setD('pvA','M'+a[0]+' '+a[1]+' V235 Q'+a[0]+' 213 '+(a[0]+22)+' 213 H1204');
+  setD('pvB','M'+b[0]+' '+b[1]+' V235 Q'+b[0]+' 213 '+(b[0]+22)+' 213');
+  setD('feed','M1294 452 H'+(f[0]+26)+' Q'+f[0]+' 452 '+f[0]+' 426 V'+f[1]);
+  [a,b,f].forEach(function(p,i){if(cs[i]){cs[i].setAttribute('cx',p[0]);cs[i].setAttribute('cy',p[1])}})},250);
+render();setScene();renderWx();fetchWeather();startScene();connect();
 })();
 </script>
 </div>
