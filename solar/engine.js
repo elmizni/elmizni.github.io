@@ -619,7 +619,7 @@ function updateLook() {
   phase = fa + '>' + fb + ' ' + w.toFixed(2);
 }
 // resolution and frame rate adapt to what the device can draw smoothly
-const maxW = OPT.maxWidth || 1920, fpsCap = OPT.fps || 60; let scale = OPT.scale || 1, cw = 0;
+const maxW = OPT.maxWidth || 1920, minScale = OPT.minScale || 0.42, minFps = OPT.minFps || 0; let fpsCap = OPT.fps || 60, scale = OPT.scale || 1, cw = 0;
 function fit() {
   const w = canvas.clientWidth || 1280, pr = Math.min(window.devicePixelRatio || 1, 2);
   const W2 = Math.max(480, Math.round(Math.min(maxW, w * pr) * scale)), H2 = Math.round(W2 * 9 / 16);
@@ -628,7 +628,7 @@ function fit() {
 const api = { cam: [0, 0, 1], fps: 0, scale: 1, running: false, failed: false,
   setWeather(o) { wx = { cloud: +o.cloud || 0, rain: +o.rain || 0, code: +o.code || 0 }; updateLook(); },
   stop() { api.running = false; }, info: () => phase + ' ' + cw + 'px ' + api.fps.toFixed(0) + 'fps' };
-let last = 0, lastLook = 0, acc = 0, n = 0, slow = 0, t0 = 0;
+let last = 0, lastLook = 0, acc = 0, n = 0, slow = 0, t0 = 0, rounds = 0, big = 0;
 function frame(now) {
   if (!api.running) return; requestAnimationFrame(frame);
   if (now - last < 1000 / fpsCap - 3) return;
@@ -639,10 +639,16 @@ function frame(now) {
     api.cam = [STYLE.cam[0] * Math.sin(a) * k, STYLE.cam[1] * Math.sin(a * 0.5) * k, z]; }
   setUniform('uTime', now / 1000); setUniform('uRes', [canvas.width, canvas.height]);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
-  if (now - t0 > 2500 && dt < 500) { acc += dt; n++;
-    if (n >= 45) { const avg = acc / n; api.fps = 1000 / avg; acc = 0; n = 0;
-      if (avg > 1000 / fpsCap * 1.45 && avg > 30) { if (scale > 0.42) { scale *= 0.8; fit(); } else if (++slow >= 3 && avg > 90) { api.failed = true; api.running = false; if (OPT.onFail) OPT.onFail('too slow: ' + avg.toFixed(0) + ' ms a frame'); } } else slow = 0;
-      api.scale = scale; if (OPT.onPerf) OPT.onPerf(api.info()); } }
+  big = dt >= 500 ? big + 1 : 0;                                     // one long gap is the screen waking up; several in a row is a screen that cannot keep up
+  if (now - t0 > 2500 && (dt < 500 || big >= 3)) { acc += dt; n++;
+    if (n >= 45 || (acc > 2500 && n >= 4)) { const avg = acc / n, target = 1000 / fpsCap; api.fps = 1000 / avg; acc = 0; n = 0;
+      if (avg > target * 1.45 && avg > 30) {
+        if (avg > 250) { api.failed = true; api.running = false; if (OPT.onFail) OPT.onFail('far too slow: ' + avg.toFixed(0) + ' ms a frame'); return; }   // no graphics chip behind this page: stop at once
+        if (scale > minScale * 1.02) { scale = Math.max(minScale, scale * Math.max(0.5, Math.min(0.8, Math.sqrt(target * 1.15 / avg)))); slow = 0; fit(); }   // first give up sharpness (a lot at once if it is far off)
+        else if (minFps && fpsCap > minFps) { fpsCap = minFps; slow = 0; }                                                                       // then smoothness
+        else if (++slow >= 2 && avg > 62) { api.failed = true; api.running = false; if (OPT.onFail) OPT.onFail('too slow: ' + avg.toFixed(0) + ' ms a frame'); }   // then hand back to the still pictures
+      } else slow = 0;
+      api.scale = scale; if (OPT.onPerf && (++rounds <= 6 || rounds % 40 === 0)) OPT.onPerf(api.info()); } }
 }
 canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); api.running = false; api.failed = true; if (OPT.onFail) OPT.onFail('graphics context lost'); });
 function start() { plateLoaded(); updateLook(); fit(); api.running = true; t0 = last = performance.now(); requestAnimationFrame(frame); if (OPT.onReady) OPT.onReady(); }
