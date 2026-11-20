@@ -640,22 +640,32 @@ function frame(now) {
   setUniform('uTime', now / 1000); setUniform('uRes', [canvas.width, canvas.height]);
   gl.drawArrays(gl.TRIANGLES, 0, 3);
   big = dt >= 500 ? big + 1 : 0;                                     // one long gap is the screen waking up; several in a row is a screen that cannot keep up
-  if (now - t0 > 2500 && (dt < 500 || big >= 3)) { acc += dt; n++;
+  if (document.hidden) { acc = 0; n = 0; big = 0; }
+  else if (big >= 4 && now - t0 > 2500) { fail('far too slow: ' + dt.toFixed(0) + ' ms a frame'); return; }
+  else if (now - t0 > 2500 && (dt < 500 || big >= 3)) { acc += dt; n++;
     if (n >= 45 || (acc > 2500 && n >= 4)) { const avg = acc / n, target = 1000 / fpsCap; api.fps = 1000 / avg; acc = 0; n = 0;
       let late = avg > target * 1.45 && avg > 30;
-      if (late) {                                             // frames are arriving late: is it the drawing, or is the page just being held back (hidden, covered, saving power)?
+      if (late && avg > 250) { fail('far too slow: ' + avg.toFixed(0) + ' ms a frame'); return; }   // no graphics chip behind this page (or it is being held back): stop at once, try again when it is next brought to the front
+      if (late) {                                             // frames are arriving late: is it the drawing, or is the page just being held back (covered, saving power)?
         const p0 = performance.now(); gl.drawArrays(gl.TRIANGLES, 0, 3); gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, probe);
         if (performance.now() - p0 < Math.min(avg * 0.5, target)) late = false;
       }
       if (late) {
-        if (avg > 250) { api.failed = true; api.running = false; if (OPT.onFail) OPT.onFail('far too slow: ' + avg.toFixed(0) + ' ms a frame'); return; }   // no graphics chip behind this page: stop at once
         if (scale > minScale * 1.02) { scale = Math.max(minScale, scale * Math.max(0.5, Math.min(0.8, Math.sqrt(target * 1.15 / avg)))); slow = 0; fit(); }   // first give up sharpness (a lot at once if it is far off)
         else if (minFps && fpsCap > minFps) { fpsCap = minFps; slow = 0; }                                                                       // then smoothness
-        else if (++slow >= 2 && avg > 62) { api.failed = true; api.running = false; if (OPT.onFail) OPT.onFail('too slow: ' + avg.toFixed(0) + ' ms a frame'); }   // then hand back to the still pictures
+        else if (++slow >= 2 && avg > 62) { fail('too slow: ' + avg.toFixed(0) + ' ms a frame'); return; }   // then hand back to the still pictures
       } else slow = 0;
       api.scale = scale; if (OPT.onPerf && (++rounds <= 6 || rounds % 40 === 0)) OPT.onPerf(api.info()); } }
 }
 canvas.addEventListener('webglcontextlost', e => { e.preventDefault(); api.running = false; api.failed = true; if (OPT.onFail) OPT.onFail('graphics context lost'); });
+// a screen judged too slow gets another chance (three at most) each time the page comes back to the front, in case it was only being held back
+let retryable = false, retries = 0;
+function fail(msg) { api.failed = true; api.running = false; retryable = true; if (OPT.onFail) OPT.onFail(msg); }
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !api.failed || !retryable || retries >= 3) return;
+  retries++; retryable = false; scale = OPT.scale || 1; fpsCap = OPT.fps || 60; slow = 0; acc = 0; n = 0; big = 0; cw = 0;
+  api.failed = false; api.running = true; t0 = last = performance.now(); fit(); requestAnimationFrame(frame); if (OPT.onReady) OPT.onReady();
+});
 function start() { plateLoaded(); updateLook(); fit(); api.running = true; t0 = last = performance.now(); requestAnimationFrame(frame); if (OPT.onReady) OPT.onReady(); }
 if (plateImg.complete && plateImg.naturalWidth) start(); else { plateImg.addEventListener('load', start); plateImg.addEventListener('error', () => { api.failed = true; if (OPT.onFail) OPT.onFail('photo did not load'); }); }
 return api;

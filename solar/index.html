@@ -123,7 +123,7 @@ main{padding:0 14px calc(var(--sb) + 24px);max-width:640px;margin:0 auto}
   <div class="btns"><button class="btn" id="bCancel">Cancel</button><button class="btn pri" id="bSave">Connect</button></div>
 </div></div>
 <script src="mqtt.min.js"></script>
-<script src="engine.js?v=3"></script>
+<script src="engine.js?v=4"></script>
 <script>
 (function(){
 'use strict';
@@ -331,7 +331,7 @@ function startScene(){
   try{var im=new Image(),hero=document.querySelector('.hero');
     SCN=SolarScene({canvas:$('gl'),plate:im,style:'cinematic',maxWidth:1280,fps:30,now:now,
       onReady:function(){hero.classList.add('live')},
-      onFail:function(){hero.classList.remove('live');SCN=null;setScene()}});
+      onFail:function(){hero.classList.remove('live');setScene()}});
     SCN.setWeather(WX);im.src='img/plate-1920.jpg';
   }catch(e){SCN=null}
 }

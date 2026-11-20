@@ -163,7 +163,7 @@ body{font-family:var(--font);color:var(--ink);-webkit-font-smoothing:antialiased
 <div style="display:none">
 </div>
 <script src="../mqtt.min.js"></script>
-<script src="../engine.js?v=3"></script>
+<script src="../engine.js?v=4"></script>
 <script>
 (function(){
 'use strict';
@@ -418,7 +418,7 @@ function startScene(){
   try{var im=new Image();
     SCN=SolarScene({canvas:$('gl'),plate:im,style:'cinematic',maxWidth:1920,fps:30,now:now,
       onReady:function(){stage.classList.add('live');LOG('live scene on')},
-      onFail:function(m){LOG('live scene off: '+m);stage.classList.remove('live');SCN=null;setScene()},
+      onFail:function(m){LOG('live scene off: '+m);stage.classList.remove('live');setScene()},
       onPerf:function(m){LOG('scene '+m)}});
     SCN.setWeather(WX);im.src='../img/plate.jpg';
   }catch(e){LOG('live scene unavailable: '+(e&&e.message));SCN=null}
