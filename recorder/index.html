@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f4f6f9" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f141c" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Recorder">
+<meta name="robots" content="noindex,nofollow">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-180.png">
+<link rel="manifest" href="manifest.json">
+<title>Conversation Recorder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one column on phones (record, who is talking, counts, transcript); two columns on wide screens with the transcript on the right. */
+:root {
+  --bg: #f4f6f9;
+  --surface: #ffffff;
+  --surface-2: #eaeef4;
+  --line: #d5dbe4;
+  --fg: #172031;
+  --muted: #5a6577;
+  --accent: #1f4fa8;
+  --accent-fg: #ffffff;
+  --rec: #c6283a;
+  --rec-soft: #fbe4e7;
+  --ok: #1d7a4c;
+  --warn-bg: #fff4dc;
+  --warn-fg: #7a4b00;
+  --sp1: #1f4fa8; --sp2: #b5462a; --sp3: #1d7a4c; --sp4: #7a3fa3; --sp5: #8a6a00; --sp6: #0e7c86;
+  --font-ui: "IBM Plex Sans", "IBM Plex Sans Arabic", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-ar: "IBM Plex Sans Arabic", "IBM Plex Sans", "Geeza Pro", "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f141c; --surface: #171e29; --surface-2: #212a38; --line: #2e3949;
+    --fg: #e7ecf3; --muted: #9aa6b8; --accent: #7ea6ff; --accent-fg: #0f141c;
+    --rec: #ff5c6c; --rec-soft: #3a1a20; --ok: #5fd09a; --warn-bg: #3a2e12; --warn-fg: #ffd58a;
+    --sp1: #7ea6ff; --sp2: #ff8f6e; --sp3: #5fd09a; --sp4: #c79bff; --sp5: #e8c55a; --sp6: #5fd3dc;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f141c; --surface: #171e29; --surface-2: #212a38; --line: #2e3949;
+  --fg: #e7ecf3; --muted: #9aa6b8; --accent: #7ea6ff; --accent-fg: #0f141c;
+  --rec: #ff5c6c; --rec-soft: #3a1a20; --ok: #5fd09a; --warn-bg: #3a2e12; --warn-fg: #ffd58a;
+  --sp1: #7ea6ff; --sp2: #ff8f6e; --sp3: #5fd09a; --sp4: #c79bff; --sp5: #e8c55a; --sp6: #5fd3dc;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { background: var(--bg); -webkit-text-size-adjust: 100%; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-ui);
+  font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-top: calc(20px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+  margin: 0;
+}
+.wrap { max-width: 1100px; margin: 0 auto; display: grid; gap: 20px; }
+header h1 { font-size: 1.6rem; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+header p { margin: 4px 0 0; color: var(--muted); max-width: 60ch; }
+.cols { display: grid; gap: 20px; grid-template-columns: 1fr; align-items: start; }
+@media (min-width: 900px) { .cols { grid-template-columns: minmax(0, 420px) minmax(0, 1fr); } }
+.stack { display: grid; gap: 20px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; min-width: 0; }
+.panel h2 { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 12px; font-weight: 600; }
+
+/* Record control */
+.rec-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.lang { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--surface-2); }
+.lang button { border: 0; background: transparent; color: var(--fg); font: inherit; font-size: 0.95rem; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,.15); font-weight: 600; }
+.lang button[lang="ar"] { font-family: var(--font-ar); }
+.lang button:disabled { cursor: not-allowed; opacity: .6; }
+.clock { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: 1.05rem; color: var(--muted); }
+.rec-btn {
+  margin-top: 16px; width: 100%; min-height: 76px; border-radius: 18px; border: 0;
+  font: inherit; font-size: 1.35rem; font-weight: 700; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  background: var(--rec); color: #fff;
+}
+.rec-btn .dot { width: 22px; height: 22px; border-radius: 50%; background: #fff; flex: none; }
+.rec-btn.on { background: var(--rec-soft); color: var(--rec); border: 2px solid var(--rec); }
+.rec-btn.on .dot { border-radius: 5px; background: var(--rec); animation: pulse 1.4s ease-in-out infinite; }
+.rec-btn:disabled { opacity: .55; cursor: wait; }
+@keyframes pulse { 50% { opacity: .35; } }
+@media (prefers-reduced-motion: reduce) { .rec-btn.on .dot { animation: none; } }
+.status { margin: 12px 0 0; font-size: 0.98rem; color: var(--muted); min-height: 1.5em; }
+.status.live { color: var(--rec); font-weight: 600; }
+.note { margin: 12px 0 0; padding: 12px 14px; border-radius: 10px; background: var(--warn-bg); color: var(--warn-fg); font-size: 0.95rem; }
+.note button { margin-top: 8px; }
+.hint { margin: 10px 0 0; font-size: 0.88rem; color: var(--muted); }
+
+/* Speakers */
+.speakers { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.sp {
+  --c: var(--sp1);
+  position: relative; display: flex; align-items: center; gap: 10px;
+  min-height: 60px; padding: 10px 12px; border-radius: 12px; cursor: pointer;
+  border: 2px solid var(--line); background: var(--surface); color: var(--fg);
+  font: inherit; text-align: start;
+}
+.sp .sw { width: 14px; height: 14px; border-radius: 50%; background: var(--c); flex: none; }
+.sp .nm { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1; }
+.sp .key { font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); }
+.sp[aria-pressed="true"] { border-color: var(--c); background: color-mix(in srgb, var(--c) 14%, var(--surface)); }
+.sp[aria-pressed="true"]::after { content: "talking"; position: absolute; top: -9px; inset-inline-end: 10px; font-size: 0.68rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; background: var(--c); color: var(--surface); padding: 1px 7px; border-radius: 6px; }
+.sp-add { border-style: dashed; color: var(--muted); justify-content: center; font-weight: 500; }
+.sp-tools { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+
+/* Buttons */
+.btn { font: inherit; font-size: 0.95rem; padding: 9px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); cursor: pointer; }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 600; }
+.btn.danger { color: var(--rec); border-color: var(--rec); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+button:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* Counts */
+.totals { display: flex; gap: 22px; flex-wrap: wrap; margin-bottom: 14px; }
+.totals div { display: grid; }
+.totals b { font-size: 1.6rem; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.totals span { font-size: 0.82rem; color: var(--muted); }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th { text-align: start; font-size: 0.78rem; color: var(--muted); font-weight: 600; padding: 6px 4px; border-bottom: 1px solid var(--line); }
+td { padding: 10px 4px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+td.num, th.num { text-align: end; white-space: nowrap; }
+.who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.who .sw { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar { height: 6px; border-radius: 3px; background: var(--surface-2); margin-top: 6px; overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 3px; }
+.tbl-wrap { overflow-x: auto; }
+
+/* Transcript */
+.tr-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.tr-head h2 { margin: 0; }
+.tr-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.transcript { display: grid; gap: 4px; }
+.turn { --c: var(--sp1); display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 12px; padding: 10px 10px; border-radius: 10px; cursor: pointer; border-inline-start: 4px solid var(--c); background: transparent; }
+.turn:hover { background: var(--surface-2); }
+.turn .t { font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted); padding-top: 3px; font-variant-numeric: tabular-nums; }
+.turn .who-l { font-weight: 600; color: var(--c); font-size: 0.9rem; }
+.turn .txt { grid-column: 2; overflow-wrap: anywhere; }
+.turn .txt:lang(ar), .turn .txt[dir="rtl"] { font-family: var(--font-ar); }
+.turn .wc { font-size: 0.78rem; color: var(--muted); font-weight: 400; margin-inline-start: 6px; }
+.turn.partial .txt { color: var(--muted); font-style: italic; }
+.turn.editing { background: var(--surface-2); cursor: default; }
+.edit { grid-column: 1 / -1; display: grid; gap: 10px; margin-top: 6px; }
+.edit textarea { width: 100%; min-height: 80px; font: inherit; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); resize: vertical; }
+.edit .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.edit .lbl { font-size: 0.85rem; color: var(--muted); }
+.chip { --c: var(--sp1); font: inherit; font-size: 0.9rem; padding: 6px 12px; border-radius: 999px; border: 2px solid var(--c); background: var(--surface); color: var(--fg); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--c); color: var(--surface); font-weight: 600; }
+.empty { color: var(--muted); padding: 8px 2px; }
+.empty ol { margin: 8px 0 0; padding-inline-start: 22px; display: grid; gap: 6px; }
+.add-line { display: flex; gap: 8px; margin-top: 14px; }
+.add-line input { flex: 1; min-width: 0; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); }
+details { margin-top: 16px; }
+summary { cursor: pointer; color: var(--accent); font-weight: 500; }
+details textarea { width: 100%; min-height: 140px; margin-top: 10px; font: inherit; padding: 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--fg); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(20px + env(safe-area-inset-bottom, 0px)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: 0.95rem; z-index: 20; max-width: calc(100% - 32px); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+#copyBox { position: absolute; left: -9999px; top: 0; width: 10px; height: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Conversation Recorder</h1>
+    <p>Tap Record, then tap the name of whoever is talking. The page writes down what is said and counts each person's words.</p>
+  </header>
+
+  <div class="cols">
+    <div class="stack">
+      <section class="panel" aria-labelledby="recH">
+        <h2 id="recH">Record</h2>
+        <div class="rec-top">
+          <div class="lang" role="group" aria-label="Language spoken">
+            <button id="langEn" type="button" lang="en" aria-pressed="true">English</button>
+            <button id="langAr" type="button" lang="ar" aria-pressed="false">العربية</button>
+          </div>
+          <span class="clock" id="clock" aria-label="Recording time">00:00</span>
+        </div>
+        <button id="recBtn" class="rec-btn" type="button" disabled><span class="dot" aria-hidden="true"></span><span id="recLabel">Getting ready…</span></button>
+        <p class="status" id="status" aria-live="polite"></p>
+        <div class="note" id="noMic" hidden>
+          <strong>This browser can't listen.</strong> On an iPhone, open this page in Safari. On a computer or Android phone, use Google Chrome. You can still paste a written transcript below and get the word counts.
+        </div>
+        <div class="note" id="micOff" hidden>
+          <strong>The microphone is blocked for this page.</strong> On iPhone, tap the <b>aA</b> button in Safari's address bar, choose Website Settings, and set Microphone to Allow. In Chrome, tap the icon to the left of the address and allow the microphone. Then tap Record.
+        </div>
+        <div class="note" id="homeTip" hidden>
+          <strong>Keep it as an app:</strong> tap Safari's Share button, then Add to Home Screen. A Recorder icon will appear with your other apps.
+          <div><button class="btn" id="tipClose" type="button">Got it</button></div>
+        </div>
+        <p class="hint">The first time, your phone asks to use the microphone (on iPhone, also speech recognition). Tap Allow. Keep this screen on while you record.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="spH">
+        <h2 id="spH">Who is talking now</h2>
+        <div class="speakers" id="speakers"></div>
+        <div class="sp-tools">
+          <button class="btn" type="button" id="renameBtn">Change names</button>
+        </div>
+        <p class="hint" id="keyHint">On a laptop you can press 1, 2, 3 to switch speaker.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="cntH">
+        <h2 id="cntH">Who spoke how much</h2>
+        <div class="totals">
+          <div><b id="totWords">0</b><span>words in total</span></div>
+          <div><b id="totTurns">0</b><span>times someone spoke</span></div>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>Speaker</th><th class="num">Words</th><th class="num">Share</th><th class="num">Turns</th></tr></thead>
+            <tbody id="countBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel" aria-labelledby="trH">
+      <div class="tr-head">
+        <h2 id="trH">Transcript</h2>
+        <div class="tr-actions">
+          <button class="btn" type="button" id="copyBtn">Copy</button>
+          <button class="btn" type="button" id="saveTxt">Save transcript</button>
+          <button class="btn" type="button" id="saveCsv">Save counts</button>
+          <button class="btn danger" type="button" id="clearBtn">New recording</button>
+        </div>
+      </div>
+      <div class="transcript" id="transcript"></div>
+      <form class="add-line" id="addForm">
+        <label class="sr" for="addInput">Type a line for the person talking now</label>
+        <input id="addInput" type="text" dir="auto" placeholder="Type a line for the person talking now" autocomplete="off">
+        <button class="btn" type="submit">Add</button>
+      </form>
+      <p class="hint">Tap any line to fix a word or move it to the right person.</p>
+      <details id="pasteBox">
+        <summary>Paste a written transcript instead</summary>
+        <p class="hint">Put each person's words on their own line, starting with their name and a colon, for example "Sara: Good morning".</p>
+        <label class="sr" for="pasteInput">Transcript to count</label>
+        <textarea id="pasteInput" dir="auto"></textarea>
+        <div class="row" style="margin-top:10px"><button class="btn primary" type="button" id="pasteBtn">Count these words</button></div>
+      </details>
+    </section>
+  </div>
+</div>
+<textarea id="copyBox" aria-hidden="true" tabindex="-1"></textarea>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(function () {
+  "use strict";
+  var STORE = "conv-recorder-v1";
+  var COLORS = 6;
+  var $ = function (id) { return document.getElementById(id); };
+
+  // ---------- state ----------
+  function freshState() {
+    return {
+      lang: "en",
+      speakers: [{ id: "s1", name: "Speaker 1", c: 1 }, { id: "s2", name: "Speaker 2", c: 2 }],
+      active: "s1",
+      turns: [],
+      elapsed: 0,
+      nextSp: 3,
+      nextTurn: 1,
+      started: null
+    };
+  }
+  var state = freshState();
+  try {
+    var saved = JSON.parse(localStorage.getItem(STORE) || "null");
+    if (saved && Array.isArray(saved.speakers) && saved.speakers.length && Array.isArray(saved.turns)) state = Object.assign(freshState(), saved);
+  } catch (e) {}
+  function persist() { try { localStorage.setItem(STORE, JSON.stringify(state)); } catch (e) {} }
+
+  var editingId = null, renaming = false;
+  var partialText = "", phraseSp = null, splits = [];
+  var dict = null, dictState = "idle", dictReady = false;
+  var downloads = null, perms = null;
+  var listenStart = 0, tick = null, wakeLock = null;
+
+  // ---------- helpers ----------
+  var seg = null;
+  try { seg = new Intl.Segmenter(undefined, { granularity: "word" }); } catch (e) {}
+  function countWords(text) {
+    text = (text || "").trim();
+    if (!text) return 0;
+    if (seg) { var n = 0; for (var s of seg.segment(text)) if (s.isWordLike) n++; return n; }
+    return text.split(/\s+/).filter(function (w) { return /[\p{L}\p{N}]/u.test(w); }).length;
+  }
+  function sp(id) { for (var i = 0; i < state.speakers.length; i++) if (state.speakers[i].id === id) return state.speakers[i]; return state.speakers[0]; }
+  function colorVar(s) { return "var(--sp" + (((s.c - 1) % COLORS) + 1) + ")"; }
+  function fmtTime(ms) {
+    var t = Math.floor(ms / 1000), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+    var mm = String(m).padStart(2, "0"), ss = String(s).padStart(2, "0");
+    return h ? h + ":" + mm + ":" + ss : mm + ":" + ss;
+  }
+  function nowElapsed() { return state.elapsed + (listenStart ? Date.now() - listenStart : 0); }
+  function isRtl(text) { return /[֐-ࣿ]/.test(text || ""); }
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  var toastT = null;
+  function toast(msg) { var t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, 2600); }
+  function setStatus(msg, live) { var s = $("status"); s.textContent = msg || ""; s.classList.toggle("live", !!live); }
+
+  // ---------- adding words ----------
+  function appendText(spId, text) {
+    text = (text || "").replace(/\s+/g, " ");
+    if (!text.trim()) return;
+    if (!state.started) state.started = Date.now();
+    var last = state.turns[state.turns.length - 1];
+    if (last && last.sp === spId) {
+      last.text = (last.text + text).replace(/^\s+/, "");
+    } else {
+      state.turns.push({ id: "t" + (state.nextTurn++), sp: spId, text: text.trim(), t: nowElapsed() });
+    }
+  }
+  function onFinal(text) {
+    var words = (text || "").trim().split(/\s+/).filter(Boolean);
+    var owner = phraseSp || state.active;
+    if (splits.length && words.length) {
+      var idx = 0;
+      splits.forEach(function (s) {
+        var upto = Math.min(words.length, Math.max(idx, s.n));
+        if (upto > idx) { appendText(s.sp, " " + words.slice(idx, upto).join(" ")); idx = upto; }
+      });
+      if (idx < words.length) appendText(state.active, " " + words.slice(idx).join(" "));
+    } else {
+      appendText(owner, text);
+    }
+    splits = []; phraseSp = null; partialText = "";
+    persist(); render();
+  }
+  function onPartial(text) {
+    partialText = text || "";
+    if (partialText.trim() && !phraseSp) phraseSp = state.active;
+    if (!partialText.trim()) { /* phrase settled; owner kept until final */ }
+    renderTranscript(); renderCounts();
+  }
+  function setActive(id) {
+    if (id === state.active) return;
+    if (dictState !== "idle" && partialText.trim()) {
+      var n = countWords(partialText);
+      splits.push({ sp: phraseSp || state.active, n: n });
+      phraseSp = id;
+    }
+    state.active = id;
+    persist(); render();
+  }
+
+  // ---------- rendering ----------
+  function render() { renderSpeakers(); renderCounts(); renderTranscript(); renderLang(); }
+
+  function renderLang() {
+    $("langEn").setAttribute("aria-pressed", state.lang === "en");
+    $("langAr").setAttribute("aria-pressed", state.lang === "ar");
+    var busy = dictState !== "idle";
+    $("langEn").disabled = busy; $("langAr").disabled = busy;
+  }
+
+  function renderSpeakers() {
+    var box = $("speakers"); box.textContent = "";
+    state.speakers.forEach(function (s, i) {
+      if (renaming) {
+        var wrapEl = el("div", "sp"); wrapEl.style.setProperty("--c", colorVar(s)); wrapEl.style.cursor = "default";
+        wrapEl.appendChild(el("span", "sw"));
+        var inp = document.createElement("input");
+        inp.id = "name-" + s.id; inp.value = s.name; inp.dir = "auto"; inp.setAttribute("aria-label", "Name for speaker " + (i + 1));
+        inp.style.cssText = "flex:1;min-width:0;font:inherit;font-weight:600;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--fg);padding:4px 0";
+        inp.addEventListener("input", function () { s.name = inp.value; persist(); renderCounts(); renderTranscript(); });
+        inp.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); toggleRename(); } });
+        wrapEl.appendChild(inp);
+        if (state.speakers.length > 1 && !state.turns.some(function (t) { return t.sp === s.id; })) {
+          var rm = el("button", "btn", "Remove"); rm.type = "button"; rm.style.padding = "4px 8px"; rm.style.fontSize = "0.8rem";
+          rm.addEventListener("click", function () { state.speakers = state.speakers.filter(function (x) { return x.id !== s.id; }); if (state.active === s.id) state.active = state.speakers[0].id; persist(); render(); });
+          wrapEl.appendChild(rm);
+        }
+        box.appendChild(wrapEl);
+        return;
+      }
+      var b = el("button", "sp"); b.type = "button"; b.id = "sp-" + s.id;
+      b.style.setProperty("--c", colorVar(s));
+      b.setAttribute("aria-pressed", s.id === state.active);
+      b.appendChild(el("span", "sw"));
+      var nm = el("span", "nm", s.name || "Speaker " + (i + 1)); nm.dir = "auto"; b.appendChild(nm);
+      if (i < 9) b.appendChild(el("span", "key", String(i + 1)));
+      b.addEventListener("click", function () { setActive(s.id); });
+      box.appendChild(b);
+    });
+    if (state.speakers.length < 12) {
+      var add = el("button", "sp sp-add", "+ Add a person"); add.type = "button"; add.id = "spAdd";
+      add.addEventListener("click", function () {
+        var n = state.nextSp++;
+        state.speakers.push({ id: "s" + n, name: "Speaker " + (state.speakers.length + 1), c: n });
+        persist(); renaming = true; render();
+        var i = $("name-s" + n); if (i) { i.focus(); i.select(); }
+      });
+      box.appendChild(add);
+    }
+    $("renameBtn").textContent = renaming ? "Done" : "Change names";
+    $("renameBtn").classList.toggle("primary", renaming);
+  }
+  function toggleRename() {
+    renaming = !renaming;
+    state.speakers.forEach(function (s, i) { if (!s.name.trim()) s.name = "Speaker " + (i + 1); });
+    persist(); render();
+    if (renaming) { var f = $("name-" + state.speakers[0].id); if (f) f.focus(); }
+  }
+
+  function tally() {
+    var m = {}; state.speakers.forEach(function (s) { m[s.id] = { w: 0, turns: 0 }; });
+    state.turns.forEach(function (t) { if (!m[t.sp]) m[t.sp] = { w: 0, turns: 0 }; m[t.sp].w += countWords(t.text); m[t.sp].turns++; });
+    var total = 0; Object.keys(m).forEach(function (k) { total += m[k].w; });
+    return { m: m, total: total };
+  }
+
+  function renderCounts() {
+    var r = tally(), body = $("countBody"); body.textContent = "";
+    var live = (dictState !== "idle" && partialText.trim()) ? countWords(partialText) : 0;
+    $("totWords").textContent = (r.total + live).toLocaleString();
+    $("totTurns").textContent = state.turns.length.toLocaleString();
+    state.speakers.forEach(function (s) {
+      var d = r.m[s.id], share = r.total ? d.w / r.total : 0;
+      var tr = document.createElement("tr");
+      var td1 = document.createElement("td");
+      var who = el("div", "who"); var sw = el("span", "sw"); sw.style.background = colorVar(s); who.appendChild(sw);
+      var nm = el("span", null, s.name); nm.dir = "auto"; who.appendChild(nm); td1.appendChild(who);
+      var bar = el("div", "bar"); var fill = document.createElement("i"); fill.style.width = (share * 100).toFixed(1) + "%"; fill.style.background = colorVar(s); bar.appendChild(fill); td1.appendChild(bar);
+      tr.appendChild(td1);
+      tr.appendChild(el("td", "num", d.w.toLocaleString()));
+      tr.appendChild(el("td", "num", r.total ? Math.round(share * 100) + "%" : "–"));
+      tr.appendChild(el("td", "num", d.turns.toLocaleString()));
+      body.appendChild(tr);
+    });
+  }
+
+  function renderTranscript() {
+    var box = $("transcript");
+    var keepFocus = document.activeElement && document.activeElement.id === "editText";
+    var editVal = keepFocus ? document.activeElement.value : null;
+    box.textContent = "";
+    if (!state.turns.length && !partialText.trim()) {
+      var e = el("div", "empty");
+      e.appendChild(el("div", null, "Nothing recorded yet."));
+      var ol = document.createElement("ol");
+      ["Pick the language being spoken.", "Tap Record.", "Each time someone starts talking, tap their name."].forEach(function (x) { ol.appendChild(el("li", null, x)); });
+      e.appendChild(ol); box.appendChild(e); return;
+    }
+    state.turns.forEach(function (t) {
+      var s = sp(t.sp);
+      var row = el("div", "turn"); row.style.setProperty("--c", colorVar(s));
+      row.tabIndex = 0; row.setAttribute("role", "button");
+      row.setAttribute("aria-label", s.name + ": " + t.text + ". Tap to change.");
+      row.appendChild(el("span", "t", fmtTime(t.t)));
+      var head = el("span", "who-l", s.name); head.dir = "auto";
+      head.appendChild(el("span", "wc", countWords(t.text) + " words"));
+      row.appendChild(head);
+      var txt = el("div", "txt", t.text); txt.dir = "auto"; if (isRtl(t.text)) txt.lang = "ar";
+      row.appendChild(txt);
+      if (editingId === t.id) {
+        row.classList.add("editing"); row.removeAttribute("role"); row.removeAttribute("aria-label");
+        var ed = el("div", "edit");
+        var ta = document.createElement("textarea"); ta.id = "editText"; ta.dir = "auto"; ta.value = editVal != null ? editVal : t.text;
+        ta.setAttribute("aria-label", "Words said");
+        ed.appendChild(ta);
+        var r1 = el("div", "row"); r1.appendChild(el("span", "lbl", "Said by:"));
+        state.speakers.forEach(function (x) {
+          var c = el("button", "chip", x.name); c.type = "button"; c.dir = "auto"; c.style.setProperty("--c", colorVar(x));
+          c.setAttribute("aria-pressed", x.id === t.sp);
+          c.addEventListener("click", function (ev) { ev.stopPropagation(); t.text = $("editText").value; t.sp = x.id; persist(); render(); });
+          r1.appendChild(c);
+        });
+        ed.appendChild(r1);
+        var r2 = el("div", "row");
+        var done = el("button", "btn primary", "Done"); done.type = "button";
+        done.addEventListener("click", function (ev) { ev.stopPropagation(); var v = $("editText").value.trim(); if (v) t.text = v; else state.turns = state.turns.filter(function (x) { return x !== t; }); editingId = null; persist(); render(); });
+        var del = el("button", "btn danger", "Delete line"); del.type = "button";
+        del.addEventListener("click", function (ev) { ev.stopPropagation(); state.turns = state.turns.filter(function (x) { return x !== t; }); editingId = null; persist(); render(); });
+        r2.appendChild(done); r2.appendChild(del);
+        ed.appendChild(r2);
+        ed.addEventListener("click", function (ev) { ev.stopPropagation(); });
+        row.appendChild(ed);
+      } else {
+        var open = function () { editingId = t.id; render(); var f = $("editText"); if (f) f.focus(); };
+        row.addEventListener("click", open);
+        row.addEventListener("keydown", function (ev) { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); open(); } });
+      }
+      box.appendChild(row);
+    });
+    if (dictState !== "idle" && partialText.trim()) {
+      var ps = sp(phraseSp || state.active);
+      var pr = el("div", "turn partial"); pr.style.setProperty("--c", colorVar(ps));
+      pr.appendChild(el("span", "t", fmtTime(nowElapsed())));
+      var ph = el("span", "who-l", ps.name + " …"); ph.dir = "auto"; pr.appendChild(ph);
+      var pt = el("div", "txt", partialText.trim()); pt.dir = "auto"; pr.appendChild(pt);
+      box.appendChild(pr);
+    }
+    if (keepFocus) { var f = $("editText"); if (f) { f.focus(); var l = f.value.length; f.setSelectionRange(l, l); } }
+    if (dictState === "listening" && !editingId) {
+      var last = box.lastElementChild;
+      if (last && last.getBoundingClientRect().bottom > window.innerHeight) last.scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  // ---------- recording (the browser's own speech recognition) ----------
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var LANGS = { en: "en-US", ar: "ar-SA" };
+  var rec = null, wantOn = false, userStart = false, finalCount = 0, sessionInterim = "";
+  var restartFails = 0, lastStartAt = 0, pendingMsg = "", stopGuard = null;
+  var MSG = {
+    stopped: "Stopped. Tap Record to carry on.",
+    hidden: "Recording paused because the screen went off or you left the page. Tap Record to carry on.",
+    paused: "Recording paused. Tap Record to carry on.",
+    dictation: "Your phone's dictation is switched off. On iPhone, open Settings, then General, then Keyboard, and turn on Enable Dictation. Then tap Record.",
+    nomic: "No microphone was found. Check that no other app is using it, then tap Record.",
+    network: "Listening needs an internet connection. Check your connection, then tap Record.",
+    arabic: "Listening in Arabic isn't available on this device. Switch to English, or paste a written transcript.",
+    other: "The microphone or the listening service had a problem. Tap Record to try again."
+  };
+  function setRecButton() {
+    var b = $("recBtn"), l = $("recLabel");
+    b.classList.toggle("on", dictState === "listening" || dictState === "finishing" || dictState === "starting");
+    b.disabled = !dictReady || dictState === "finishing";
+    if (!dictReady) { l.textContent = dict === false ? "Recording not available here" : "Getting ready…"; return; }
+    l.textContent = { idle: (state.turns.length ? "Record more" : "Record"), starting: "Starting…", listening: "Stop", finishing: "Finishing…" }[dictState] || "Record";
+  }
+  function setState(s) { dictState = s; setRecButton(); renderLang(); renderTranscript(); renderCounts(); }
+  function startClock() {
+    listenStart = Date.now();
+    clearInterval(tick);
+    tick = setInterval(function () { $("clock").textContent = fmtTime(nowElapsed()); }, 500);
+    try { if (navigator.wakeLock) navigator.wakeLock.request("screen").then(function (w) { wakeLock = w; }).catch(function () {}); } catch (e) {}
+  }
+  function stopClock() {
+    if (listenStart) { state.elapsed += Date.now() - listenStart; listenStart = 0; persist(); }
+    clearInterval(tick); tick = null;
+    $("clock").textContent = fmtTime(state.elapsed);
+    try { if (wakeLock) wakeLock.release(); } catch (e) {} wakeLock = null;
+  }
+  function commitInterim() {
+    var t = sessionInterim.trim();
+    sessionInterim = ""; partialText = "";
+    if (t) onFinal(" " + t);
+  }
+  function finishIdle() {
+    clearTimeout(stopGuard); stopGuard = null;
+    commitInterim(); finalCount = 0; rec = null; wantOn = false;
+    partialText = ""; phraseSp = null; splits = [];
+    stopClock(); setState("idle");
+    setStatus(pendingMsg || MSG.stopped);
+    pendingMsg = "";
+  }
+  function startRec(fromTap) {
+    var r = new SR();
+    r.lang = LANGS[state.lang] || "en-US";
+    r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+    r.onstart = function () {
+      if (dictState !== "listening") {
+        $("micOff").hidden = true;
+        if (!listenStart) startClock();
+        setState("listening");
+        setStatus("Listening. Tap a name when the speaker changes.", true);
+      }
+    };
+    r.onresult = function (e) {
+      var interim = "";
+      for (var i = finalCount; i < e.results.length; i++) {
+        var res = e.results[i];
+        if (res.isFinal && i === finalCount) {
+          finalCount = i + 1;
+          var t = (res[0] && res[0].transcript || "").trim();
+          sessionInterim = ""; partialText = "";
+          if (t) onFinal(" " + t);
+        } else {
+          interim += (res[0] && res[0].transcript || "") + " ";
+        }
+      }
+      sessionInterim = interim.replace(/\s+/g, " ").trim();
+      onPartial(sessionInterim);
+      restartFails = 0;
+    };
+    r.onerror = function (e) {
+      var c = e && e.error;
+      if (c === "no-speech" || c === "aborted") return;
+      wantOn = false;
+      if (!userStart && (c === "not-allowed" || c === "service-not-allowed")) { pendingMsg = MSG.paused; return; }
+      if (c === "not-allowed") { $("micOff").hidden = false; pendingMsg = " "; return; }
+      if (c === "service-not-allowed") { pendingMsg = state.lang === "ar" ? MSG.arabic + " If English doesn't work either: " + MSG.dictation : MSG.dictation; return; }
+      if (c === "language-not-supported") { pendingMsg = MSG.arabic; return; }
+      if (c === "audio-capture") { pendingMsg = MSG.nomic; return; }
+      if (c === "network") { pendingMsg = MSG.network; return; }
+      pendingMsg = MSG.other;
+    };
+    r.onend = function () {
+      if (rec !== r) return;
+      commitInterim(); finalCount = 0;
+      if (wantOn && document.hidden) { pendingMsg = MSG.hidden; }
+      else if (wantOn) {
+        // The browser stops listening after a pause; carry straight on.
+        restartFails = (Date.now() - lastStartAt < 1500) ? restartFails + 1 : 0;
+        if (restartFails < 4) {
+          try { startRec(false); return; } catch (err) {}
+        }
+        pendingMsg = MSG.paused;
+      }
+      finishIdle();
+    };
+    rec = r; userStart = fromTap; lastStartAt = Date.now(); finalCount = 0; sessionInterim = "";
+    r.start();
+  }
+  function toggleRecord() {
+    if (!SR || !dictReady) return;
+    if (dictState === "idle") {
+      wantOn = true; pendingMsg = ""; restartFails = 0;
+      $("micOff").hidden = true;
+      setState("starting");
+      setStatus("Starting… if your phone asks, tap Allow.");
+      try { startRec(true); } catch (e) { rec = null; pendingMsg = MSG.other; finishIdle(); }
+    } else if (dictState === "listening" || dictState === "starting") {
+      wantOn = false; pendingMsg = MSG.stopped;
+      setState("finishing");
+      setStatus("Finishing the last words…");
+      try { if (rec) rec.stop(); else finishIdle(); } catch (e) { finishIdle(); }
+      stopGuard = setTimeout(function () { if (dictState === "finishing") { if (rec) { try { rec.abort(); } catch (e) {} } rec = null; finishIdle(); } }, 3000);
+    }
+  }
+  $("recBtn").addEventListener("click", toggleRecord);
+
+  function chooseLang(l) { if (dictState !== "idle") return; state.lang = l; persist(); renderLang(); setStatus(""); }
+  $("langEn").addEventListener("click", function () { chooseLang("en"); });
+  $("langAr").addEventListener("click", function () { chooseLang("ar"); });
+
+  if (SR) { dict = true; dictReady = true; }
+  else { dict = false; $("noMic").hidden = false; $("pasteBox").open = true; }
+  setRecButton();
+
+  // Home Screen tip, only in iPhone/iPad Safari when not already opened from the icon.
+  (function () {
+    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    var standalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+    var dismissed = false; try { dismissed = localStorage.getItem("conv-recorder-tip") === "1"; } catch (e) {}
+    if (ios && !standalone && !dismissed) $("homeTip").hidden = false;
+    $("tipClose").addEventListener("click", function () { $("homeTip").hidden = true; try { localStorage.setItem("conv-recorder-tip", "1"); } catch (e) {} });
+  })();
+
+  // ---------- speakers & keys ----------
+  $("renameBtn").addEventListener("click", toggleRename);
+  document.addEventListener("keydown", function (e) {
+    var tag = (e.target && e.target.tagName) || "";
+    if (tag === "INPUT" || tag === "TEXTAREA" || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (/^[1-9]$/.test(e.key)) { var s = state.speakers[Number(e.key) - 1]; if (s) { e.preventDefault(); setActive(s.id); } }
+  });
+
+  // ---------- typed line ----------
+  $("addForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var v = $("addInput").value.trim(); if (!v) return;
+    state.turns.push({ id: "t" + (state.nextTurn++), sp: state.active, text: v, t: nowElapsed() });
+    if (!state.started) state.started = Date.now();
+    $("addInput").value = ""; persist(); render();
+  });
+
+  // ---------- paste ----------
+  $("pasteBtn").addEventListener("click", function () {
+    var raw = $("pasteInput").value; if (!raw.trim()) { toast("Paste some text first."); return; }
+    var byName = {}, speakers = [], turns = [], n = 1, tn = 1, cur = null;
+    function getSp(name) {
+      var key = name.trim().toLowerCase();
+      if (!byName[key]) { byName[key] = { id: "s" + n, name: name.trim(), c: n }; n++; speakers.push(byName[key]); }
+      return byName[key];
+    }
+    raw.split(/\r?\n/).forEach(function (line) {
+      line = line.trim(); if (!line) return;
+      line = line.replace(/^\[?\(?\d{1,2}:\d{2}(:\d{2})?\]?\)?\s*/, "");
+      var m = line.match(/^([^:：]{1,40})[:：]\s*(.*)$/);
+      var who, text;
+      if (m && m[1].trim().split(/\s+/).length <= 4) { who = getSp(m[1]); text = m[2]; }
+      else { who = cur || getSp("Speaker 1"); text = line; }
+      cur = who;
+      if (!text.trim()) return;
+      var last = turns[turns.length - 1];
+      if (last && last.sp === who.id) last.text += " " + text.trim();
+      else turns.push({ id: "t" + (tn++), sp: who.id, text: text.trim(), t: 0 });
+    });
+    if (!turns.length) { toast("No words found to count."); return; }
+    state = Object.assign(freshState(), { lang: isRtl(raw) ? "ar" : "en", speakers: speakers, active: speakers[0].id, turns: turns, nextSp: n, nextTurn: tn, started: Date.now(), pasted: true });
+    editingId = null; renaming = false; persist(); render(); $("clock").textContent = "00:00";
+    toast("Counted " + tally().total.toLocaleString() + " words from " + speakers.length + " people.");
+  });
+
+  // ---------- export ----------
+  function dateLabel() {
+    var d = new Date(state.started || Date.now());
+    try { return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }); } catch (e) { return d.toString(); }
+  }
+  function buildText() {
+    var r = tally(), out = [];
+    out.push("Conversation recorded " + dateLabel());
+    out.push("Language: " + (state.lang === "ar" ? "Arabic" : "English") + (state.elapsed ? "   Length: " + fmtTime(state.elapsed) : ""));
+    out.push("");
+    out.push("WHO SPOKE HOW MUCH");
+    state.speakers.forEach(function (s) {
+      var d = r.m[s.id]; out.push(s.name + ": " + d.w + " words (" + (r.total ? Math.round(d.w / r.total * 100) : 0) + "%), spoke " + d.turns + " times");
+    });
+    out.push("Total: " + r.total + " words");
+    out.push(""); out.push("TRANSCRIPT");
+    state.turns.forEach(function (t) { out.push((state.pasted ? "" : "[" + fmtTime(t.t) + "] ") + sp(t.sp).name + ": " + t.text); });
+    return out.join("\n");
+  }
+  function csvCell(v) { v = String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  function buildCsv() {
+    var r = tally(), rows = [["Speaker", "Words", "Share (%)", "Turns"]];
+    state.speakers.forEach(function (s) { var d = r.m[s.id]; rows.push([s.name, d.w, r.total ? (d.w / r.total * 100).toFixed(1) : "0", d.turns]); });
+    rows.push(["Total", r.total, "100", state.turns.length]);
+    return "﻿" + rows.map(function (row) { return row.map(csvCell).join(","); }).join("\r\n");
+  }
+  function stamp() { var d = new Date(state.started || Date.now()); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0") + " " + String(d.getHours()).padStart(2, "0") + String(d.getMinutes()).padStart(2, "0"); }
+  function save(filename, data) {
+    if (!state.turns.length) { toast("Nothing to save yet."); return; }
+    var mime = /\.csv$/.test(filename) ? "text/csv" : "text/plain";
+    var blob = new Blob([data], { type: mime + ";charset=utf-8" });
+    var touch = window.matchMedia && window.matchMedia("(hover: none)").matches;
+    try {
+      var file = new File([blob], filename, { type: mime });
+      if (touch && navigator.canShare && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file], title: filename }).then(function () {}, function (e) {
+          if (e && e.name === "AbortError") return;
+          download(blob, filename);
+        });
+        return;
+      }
+    } catch (e) {}
+    download(blob, filename);
+  }
+  function download(blob, filename) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob); a.download = filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+    toast("Saved to your downloads.");
+  }
+  $("saveTxt").addEventListener("click", function () { save("Conversation " + stamp() + ".txt", buildText()); });
+  $("saveCsv").addEventListener("click", function () { save("Word counts " + stamp() + ".csv", buildCsv()); });
+  $("copyBtn").addEventListener("click", function () {
+    if (!state.turns.length) { toast("Nothing to copy yet."); return; }
+    var text = buildText();
+    function fallback() {
+      var box = $("copyBox"); box.value = text; box.focus(); box.select();
+      var ok = false; try { ok = document.execCommand("copy"); } catch (e) {}
+      toast(ok ? "Copied. Paste it into a message or a note." : "Couldn't copy here. Use Save instead.");
+    }
+    try {
+      navigator.clipboard.writeText(text).then(function () { toast("Copied. Paste it into a message or a note."); }, fallback);
+    } catch (e) { fallback(); }
+  });
+
+  // ---------- clear (two taps, since pop-up questions don't show here) ----------
+  var clearArmed = null;
+  $("clearBtn").addEventListener("click", function () {
+    var b = $("clearBtn");
+    if (dictState !== "idle") { toast("Stop recording first."); return; }
+    if (!clearArmed) {
+      if (!state.turns.length) return;
+      b.textContent = "Tap again to clear"; clearArmed = setTimeout(function () { clearArmed = null; b.textContent = "New recording"; }, 4000); return;
+    }
+    clearTimeout(clearArmed); clearArmed = null; b.textContent = "New recording";
+    var keep = state.speakers.map(function (s) { return { id: s.id, name: s.name, c: s.c }; });
+    var lang = state.lang, nextSp = state.nextSp;
+    state = freshState(); state.speakers = keep; state.active = keep[0].id; state.lang = lang; state.nextSp = nextSp;
+    editingId = null; partialText = ""; persist(); render(); $("clock").textContent = "00:00";
+    toast("Cleared. Names kept for the next recording.");
+  });
+
+  // ---------- go ----------
+  if (window.matchMedia && window.matchMedia("(hover: none)").matches) $("keyHint").hidden = true;
+  $("clock").textContent = fmtTime(state.elapsed);
+  render(); setRecButton();
+})();
+</script>
+</body>
+</html>
