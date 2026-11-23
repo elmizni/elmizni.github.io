@@ -312,6 +312,7 @@ details textarea { width: 100%; min-height: 140px; margin-top: 10px; font: inher
   }
   function nowElapsed() { return state.elapsed + (listenStart ? Date.now() - listenStart : 0); }
   function isRtl(text) { return /[֐-ࣿ]/.test(text || ""); }
+  function mostlyArabic(text) { var ar = (text.match(/[\u0600-\u06FF]/g) || []).length, lat = (text.match(/[A-Za-z]/g) || []).length; return ar > lat; }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   var toastT = null;
   function toast(msg) { var t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(function () { t.hidden = true; }, 2600); }
@@ -465,7 +466,7 @@ details textarea { width: 100%; min-height: 140px; margin-top: 10px; font: inher
       var row = el("div", "turn"); row.style.setProperty("--c", colorVar(s));
       row.tabIndex = 0; row.setAttribute("role", "button");
       row.setAttribute("aria-label", s.name + ": " + t.text + ". Tap to change.");
-      row.appendChild(el("span", "t", fmtTime(t.t)));
+      row.appendChild(el("span", "t", state.pasted ? "" : fmtTime(t.t)));
       var head = el("span", "who-l", s.name); head.dir = "auto";
       head.appendChild(el("span", "wc", countWords(t.text) + " words"));
       row.appendChild(head);
@@ -697,7 +698,7 @@ details textarea { width: 100%; min-height: 140px; margin-top: 10px; font: inher
       else turns.push({ id: "t" + (tn++), sp: who.id, text: text.trim(), t: 0 });
     });
     if (!turns.length) { toast("No words found to count."); return; }
-    state = Object.assign(freshState(), { lang: isRtl(raw) ? "ar" : "en", speakers: speakers, active: speakers[0].id, turns: turns, nextSp: n, nextTurn: tn, started: Date.now(), pasted: true });
+    state = Object.assign(freshState(), { lang: mostlyArabic(raw) ? "ar" : "en", speakers: speakers, active: speakers[0].id, turns: turns, nextSp: n, nextTurn: tn, started: Date.now(), pasted: true });
     editingId = null; renaming = false; persist(); render(); $("clock").textContent = "00:00";
     toast("Counted " + tally().total.toLocaleString() + " words from " + speakers.length + " people.");
   });
