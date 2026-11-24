@@ -1,0 +1,884 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Marquee Cinemas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#000000">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: dark auditorium shell — slim top bar, centered work column + sticky summary card, red reserved for selection & primary action */
+:root{
+  --bg:#000; --bg-glow:#2a0508; --panel:#0e0e10; --panel-2:#17171a; --line:#232327; --line-2:#2e2e33;
+  --fg:#f4f4f5; --muted:#9b9ba3; --dim:#606068;
+  --red:#e3121f; --red-hi:#ff2a36; --seat:#cfcfd4; --seat-off:#2b2b30; --seat-off-fg:#4a4a52; --ok:#34c27a; --amber:#f0a030;
+  --f-body:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-disp:"Space Grotesk","Inter",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;-webkit-font-smoothing:antialiased}
+body{min-height:100vh;background:linear-gradient(180deg,var(--bg-glow) 0,#120203 90px,var(--bg) 260px) no-repeat,var(--bg)}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+button:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--red-hi);outline-offset:2px}
+a{color:inherit}
+.num{font-variant-numeric:tabular-nums}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* top bar */
+.top{display:flex;align-items:center;gap:10px;height:46px;border-bottom:1px solid rgba(255,255,255,.04)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px;letter-spacing:-.01em;text-decoration:none}
+.brand i{width:8px;height:8px;border-radius:50%;background:var(--red);box-shadow:0 0 10px var(--red)}
+.pill{font-size:10px;color:var(--muted);border:1px solid var(--line-2);border-radius:99px;padding:2px 8px;background:rgba(255,255,255,.03)}
+.top nav{margin-left:auto;display:flex;gap:4px;align-items:center}
+.top nav a{font-size:12px;color:var(--muted);text-decoration:none;padding:6px 10px;border-radius:8px}
+.top nav a.on,.top nav a:hover{color:var(--fg);background:rgba(255,255,255,.05)}
+.badge{display:inline-grid;place-items:center;min-width:16px;height:16px;border-radius:9px;background:var(--red);color:#fff;font-size:10px;font-weight:700;margin-left:4px;padding:0 4px}
+
+main{padding-block:26px 60px}
+.view[hidden]{display:none!important}
+h1,h2,h3{font-family:var(--f-body);margin:0;text-wrap:balance}
+h1{font-size:18px;font-weight:800;letter-spacing:-.01em}
+.sub{font-size:11.5px;color:var(--muted);margin-top:2px}
+.eyebrow{font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+/* buttons / segmented */
+.seg{display:inline-flex;gap:2px;padding:3px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
+.seg button{font-size:12px;padding:6px 11px;border-radius:7px;color:var(--muted);font-weight:500}
+.seg button.on{background:#2a2a2f;color:var(--fg)}
+.stepper{display:inline-flex;align-items:center;border-radius:10px;background:var(--panel);border:1px solid var(--line);height:36px}
+.stepper button{width:32px;height:100%;font-size:16px;color:var(--fg)}
+.stepper button:disabled{color:var(--dim);cursor:default}
+.stepper span{min-width:64px;text-align:center;font-size:12px;font-weight:600}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:36px;padding:0 16px;border-radius:99px;font-weight:700;font-size:12.5px;white-space:nowrap}
+.btn-red{background:var(--red);color:#fff;box-shadow:0 6px 20px -8px var(--red)}
+.btn-red:hover{background:var(--red-hi)}
+.btn-red:disabled{background:#3a1416;color:#9a6d70;box-shadow:none;cursor:not-allowed}
+.btn-ghost{background:rgba(255,255,255,.06);border:1px solid var(--line-2)}
+.btn-ghost:hover{background:rgba(255,255,255,.1)}
+.btn-block{width:100%;height:40px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 11px;border-radius:99px;border:1px solid var(--line-2);font-size:11.5px;color:var(--muted);background:var(--panel)}
+.chip:hover{color:var(--fg)}
+.chip.on{color:#fff;border-color:var(--red);background:rgba(227,18,31,.14)}
+
+/* toggle */
+.tog{display:inline-flex;align-items:center;gap:10px;height:38px;padding:0 14px 0 8px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-size:12px;font-weight:700}
+.tog .sw{width:32px;height:18px;border-radius:99px;background:#3a3a40;position:relative;transition:background .2s}
+.tog .sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .2s}
+.tog[aria-checked="true"] .sw{background:var(--red)}
+.tog[aria-checked="true"] .sw::after{transform:translateX(14px)}
+
+/* ===== seats screen ===== */
+.seats-layout{display:flex;justify-content:center;gap:16px;align-items:flex-start}
+.seats-main{width:760px;max-width:100%;min-width:0;transition:width .35s ease}
+.seats-layout.is3d .seats-main{width:1430px}
+.seats-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.seats-ctrls{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap;align-items:center}
+.mapbox{margin-top:22px;overflow-x:auto;padding-bottom:6px}
+.map{width:max-content;margin:0 auto}
+.screen-arc{display:block;margin:0 auto;width:min(450px,80%);height:28px}
+.screen-label{text-align:center;font-size:9px;letter-spacing:.35em;color:var(--muted);font-weight:700;margin:2px 0 14px}
+.grid{display:grid;gap:4px 3.5px}
+.row-l{font-size:10px;font-weight:700;color:var(--muted);display:grid;place-items:center;width:16px}
+.seat{width:23px;height:23px;border-radius:5px;background:var(--seat);color:#2b2b30;font-size:8.5px;font-weight:700;display:grid;place-items:center;padding:0;transition:transform .1s,background .15s}
+.seat:hover:not(:disabled){transform:scale(1.12);background:#fff}
+.seat.sel{background:var(--red);color:#fff;box-shadow:0 0 0 2px rgba(227,18,31,.35),0 0 14px rgba(227,18,31,.55)}
+.seat:disabled{background:var(--seat-off);color:var(--seat-off-fg);cursor:not-allowed}
+.grey-mode .seat:disabled{background:#56565c;color:#7a7a82}
+.seat.wc{outline:1px dashed #6fa8ff;outline-offset:-3px}
+.legend{display:flex;justify-content:center;gap:18px;margin-top:18px;font-size:10.5px;color:var(--muted);flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.disclaimer{text-align:center;font-size:9.5px;color:var(--dim);margin-top:150px}
+
+/* summary card */
+.card{background:linear-gradient(180deg,#121214,#0b0b0d);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+.summary{width:254px;flex:0 0 254px;position:sticky;top:16px}
+.sum-movie{display:flex;gap:10px;align-items:center;padding-bottom:12px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+.sum-movie .mini{width:34px;height:48px;border-radius:5px;flex:0 0 auto}
+.sum-movie b{font-size:12px;display:block;line-height:1.25}
+.sum-movie small{font-size:10.5px;color:var(--muted)}
+.sum-row{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.sum-row .v{font-size:12.5px;font-weight:800;margin-top:3px}
+.sum-total{display:flex;justify-content:space-between;align-items:baseline;margin:16px 0 10px;font-size:11px;color:var(--muted)}
+.sum-total b{font-size:13.5px;color:var(--fg);font-weight:800}
+.hold{font-size:10.5px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-top:10px}
+.hold b{color:var(--fg)}
+details.demo{margin-top:12px}
+details.demo summary{font-size:9.5px;font-weight:700;letter-spacing:.1em;color:var(--muted);cursor:pointer;list-style:none}
+details.demo summary::before{content:"▸ "}
+details.demo[open] summary::before{content:"▾ "}
+.demo-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:10px;font-size:10.5px;color:var(--muted)}
+.demo-row .seg button{font-size:10.5px;padding:4px 7px}
+
+/* 3D stage */
+.stage{position:relative;margin-top:16px;border-radius:12px;overflow:hidden;background:#050607;border:1px solid var(--line);height:min(640px,70vh);min-height:380px}
+.stage canvas{display:block;width:100%;height:100%;touch-action:none}
+.stage:fullscreen{border-radius:0;height:100%}
+.ov{position:absolute;z-index:2}
+.ov-legend{top:12px;left:12px;display:flex;gap:10px;font-size:10.5px;padding:6px 10px;border-radius:10px;background:rgba(10,10,12,.72);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.06)}
+.ov-legend span{display:inline-flex;align-items:center;gap:5px}
+.ov-legend i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.ov-hint{top:12px;left:50%;transform:translateX(-50%);font-size:10.5px;padding:6px 12px;border-radius:10px;background:rgba(10,10,12,.72);backdrop-filter:blur(6px);white-space:nowrap;color:#d6d6da}
+.ov-fs{top:10px;right:10px}
+.ov-fs button,.ov-zoom button{background:rgba(10,10,12,.72);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.08);border-radius:9px;font-size:11px;font-weight:600;height:30px;padding:0 10px;display:inline-flex;gap:6px;align-items:center}
+.ov-zoom{right:12px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px}
+.ov-zoom button{width:30px;padding:0;justify-content:center;font-size:14px}
+.ov-bar{bottom:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:9px 10px 9px 14px;border-radius:12px;background:rgba(14,14,16,.86);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.08);max-width:calc(100% - 24px)}
+.ov-bar .l{min-width:120px}
+.ov-bar b{display:block;font-size:12.5px}
+.ov-bar small{font-size:10px;color:var(--muted)}
+.ov-bar .btn{height:30px;padding:0 12px;font-size:11.5px;border-radius:8px}
+.tip{position:absolute;z-index:3;pointer-events:none;background:rgba(18,18,22,.92);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:6px 9px;font-size:10.5px;line-height:1.45;transform:translate(10px,10px);white-space:nowrap}
+.tip b{font-size:11px}
+.tip span{color:var(--muted)}
+.loading3d{position:absolute;inset:0;display:grid;place-items:center;color:var(--muted);font-size:12px}
+
+/* ===== movies ===== */
+.page{max-width:1080px;margin:0 auto}
+.dates{display:flex;gap:8px;overflow-x:auto;padding:4px 0 8px;margin-top:16px}
+.date{flex:0 0 auto;width:64px;padding:8px 0;border-radius:12px;border:1px solid var(--line);background:var(--panel);text-align:center}
+.date small{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+.date b{display:block;font-size:18px;font-family:var(--f-disp);margin-top:2px}
+.date.on{border-color:var(--red);background:rgba(227,18,31,.12)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.movies{display:grid;gap:14px;margin-top:20px}
+.movie{display:grid;grid-template-columns:112px minmax(0,1fr);gap:18px;padding:14px;border-radius:14px;border:1px solid var(--line);background:linear-gradient(90deg,#0f0f11,#09090a)}
+.poster{width:100%;aspect-ratio:2/3;border-radius:9px;position:relative;overflow:hidden;display:flex;align-items:flex-end;padding:9px;box-shadow:0 10px 30px -12px rgba(0,0,0,.9)}
+.poster b{font-family:var(--f-disp);font-weight:700;font-size:13px;line-height:1.05;text-shadow:0 2px 8px rgba(0,0,0,.6);position:relative;z-index:1;letter-spacing:-.01em}
+.poster::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,.7))}
+.m-title{font-size:17px;font-weight:800;font-family:var(--f-disp);letter-spacing:-.01em}
+.m-meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--muted);margin-top:5px}
+.rate{border:1px solid var(--line-2);border-radius:4px;padding:0 5px;font-weight:700;font-size:10px;color:var(--fg)}
+.m-syn{font-size:12.5px;color:#c2c2c8;line-height:1.55;margin:8px 0 0;max-width:62ch}
+.fmt-group{margin-top:12px}
+.fmt-group .eyebrow{margin-bottom:6px;display:flex;gap:8px;align-items:center}
+.times{display:flex;gap:8px;flex-wrap:wrap}
+.time{min-width:84px;padding:7px 10px;border-radius:10px;border:1px solid var(--line-2);background:var(--panel-2);text-align:left}
+.time:hover{border-color:#5a5a62;background:#1f1f23}
+.time b{display:block;font-size:13.5px}
+.time small{display:block;font-size:10px;color:var(--muted);margin-top:1px}
+.time .fill{height:3px;border-radius:2px;background:#2a2a30;margin-top:6px;overflow:hidden}
+.time .fill i{display:block;height:100%;background:var(--ok)}
+.time .fill i.mid{background:var(--amber)}
+.time .fill i.hi{background:var(--red)}
+.time:disabled{opacity:.4;cursor:not-allowed}
+
+/* ===== kiosk ===== */
+.steps{display:flex;gap:6px;align-items:center;font-size:11px;color:var(--dim);margin-bottom:14px;flex-wrap:wrap}
+.steps b{color:var(--fg);font-weight:600}
+.steps .done{color:var(--muted)}
+.two{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+.cats{display:flex;gap:6px;flex-wrap:wrap;margin:14px 0}
+.items{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.item{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:12px;display:flex;flex-direction:column;gap:8px}
+.item .art{height:84px;border-radius:9px;display:grid;place-items:center;font-size:40px}
+.item h3{font-size:13px;font-weight:700}
+.item p{margin:0;font-size:11px;color:var(--muted);line-height:1.45}
+.tags{display:flex;gap:4px;flex-wrap:wrap}
+.tag{font-size:9.5px;padding:2px 6px;border-radius:5px;background:#1c1c20;color:#b9b9c0;border:1px solid var(--line)}
+.tag.save{color:#7ee2a8;border-color:#1f4a33;background:#0e2219}
+.item .foot{display:flex;justify-content:space-between;align-items:center;margin-top:auto;gap:6px}
+.item .price{font-weight:800;font-size:13px}
+.sizes{display:flex;gap:3px}
+.sizes button{font-size:10.5px;width:24px;height:22px;border-radius:5px;background:#1c1c20;color:var(--muted);font-weight:700}
+.sizes button.on{background:#e9e9ec;color:#111}
+.qty{display:inline-flex;align-items:center;border:1px solid var(--line-2);border-radius:99px;height:28px}
+.qty button{width:26px;height:100%;font-size:14px}
+.qty span{min-width:16px;text-align:center;font-size:12px;font-weight:700}
+.add{height:28px;padding:0 12px;border-radius:99px;background:#e9e9ec;color:#111;font-size:11.5px;font-weight:700}
+.cart-line{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.cart-line small{color:var(--muted);display:block;font-size:10.5px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:10px;border:1px solid var(--line);cursor:pointer;margin-top:8px;background:var(--panel)}
+.opt input{accent-color:var(--red);margin-top:2px}
+.opt b{font-size:12px;display:block}
+.opt small{font-size:10.5px;color:var(--muted);line-height:1.4;display:block;margin-top:2px}
+.opt:has(input:checked){border-color:var(--red);background:rgba(227,18,31,.08)}
+.field{display:flex;flex-direction:column;gap:5px;margin-top:10px}
+.field label{font-size:10.5px;color:var(--muted)}
+.field input,.field textarea{background:#0a0a0b;border:1px solid var(--line-2);border-radius:9px;height:36px;padding:0 10px;color:var(--fg);font:inherit;font-size:12.5px}
+.field textarea{height:56px;padding:8px 10px;resize:vertical}
+.small{font-size:11px;color:var(--muted);line-height:1.5}
+.muted{color:var(--muted)}
+.line{display:flex;justify-content:space-between;font-size:12px;padding:4px 0}
+.line.tot{font-weight:800;font-size:14px;border-top:1px solid var(--line);margin-top:8px;padding-top:10px}
+.pay-methods{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.pm{height:44px;border-radius:10px;border:1px solid var(--line-2);background:var(--panel);font-weight:700;font-size:12px}
+.pm.on{border-color:var(--red);background:rgba(227,18,31,.1)}
+.sec{margin-top:18px}
+.sec>h2{font-size:13px;font-weight:800;margin-bottom:4px}
+
+/* ===== ticket ===== */
+.ticket{display:grid;grid-template-columns:minmax(0,1fr) 220px;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#0d0d0f}
+.ticket .main{padding:18px;min-width:0}
+.ticket .stub{background:#f2f2f4;color:#111;padding:16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;border-left:2px dashed #444;text-align:center}
+.ticket .stub small{font-size:10px;color:#555}
+.qr{width:150px;height:150px;background:#fff;display:grid;place-items:center}
+.qr img,.qr canvas{width:140px!important;height:140px!important}
+.kv{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}
+.kv div small{display:block;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.kv div b{font-size:14px}
+.count{font-family:var(--f-disp);font-size:24px;font-weight:700}
+.track{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:14px}
+.track div{text-align:center;font-size:10.5px;color:var(--dim)}
+.track div::before{content:"";display:block;height:4px;border-radius:2px;background:#26262b;margin-bottom:6px}
+.track div.on{color:var(--fg)}
+.track div.on::before{background:var(--ok)}
+.track div.now::before{background:linear-gradient(90deg,var(--ok),#7af0b1,var(--ok));background-size:200%;animation:sh 1.2s linear infinite}
+@keyframes sh{to{background-position:-200% 0}}
+.big-req{height:52px;font-size:14px;border-radius:14px}
+.quick{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.dir{display:flex;gap:10px;align-items:flex-start;font-size:12px;color:#c9c9cf;line-height:1.5}
+.dir .n{width:20px;height:20px;border-radius:50%;background:#1d1d21;display:grid;place-items:center;font-size:10px;font-weight:700;flex:0 0 auto}
+.stack{display:grid;gap:14px}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 8px var(--ok);margin-right:6px}
+.empty{padding:40px 16px;text-align:center;color:var(--muted);border:1px dashed var(--line-2);border-radius:14px}
+.booking-row{display:flex;gap:14px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);cursor:pointer;width:100%;text-align:left}
+.booking-row:hover{border-color:#44444b}
+
+.toast{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);opacity:0;background:#f4f4f5;color:#111;font-size:11.5px;padding:9px 14px;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,.5);transition:.25s;z-index:50;max-width:calc(100% - 32px);pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* sheet (modal) */
+.sheet-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:40;display:grid;place-items:center;padding:16px}
+.sheet{width:min(440px,100%);max-height:86vh;overflow:auto}
+
+@media (max-width:980px){
+  .seats-layout{flex-direction:column;align-items:stretch}
+  .summary{width:auto;flex:auto;position:static}
+  .two{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:600px){
+  .movie{grid-template-columns:78px minmax(0,1fr);gap:12px}
+  .ticket{grid-template-columns:minmax(0,1fr)}
+  .ticket .stub{border-left:0;border-top:2px dashed #444}
+  .kv{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ov-hint{display:none}
+  .ov-bar{flex-wrap:wrap;justify-content:center;width:calc(100% - 24px)}
+  .stage{height:62vh}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="top wrap">
+  <a class="brand" href="#movies"><i></i>Marquee</a><span class="pill">Concept demo</span>
+  <nav>
+    <a href="#movies" id="nav-movies">Movies</a>
+    <a href="#tickets" id="nav-tickets"><span class="lbl">My tickets</span><span class="badge" id="tix-badge" hidden>0</span></a>
+  </nav>
+</header>
+
+<main class="wrap">
+
+<!-- ================= MOVIES ================= -->
+<section class="view page" id="v-movies">
+  <h1>Now showing</h1>
+  <div class="sub">Pick a date and a showtime. The bar under each time shows how full that show is.</div>
+  <div class="dates" id="dates"></div>
+  <div class="filters" id="fmt-filter"></div>
+  <div class="movies" id="movies"></div>
+</section>
+
+<!-- ================= SEATS (matches the reference video) ================= -->
+<section class="view" id="v-seats" hidden>
+  <div class="seats-layout" id="seats-layout">
+    <div class="seats-main">
+      <div class="seats-head">
+        <div>
+          <h1>Choose your seats</h1>
+          <div class="sub" id="seats-sub">Standard · 1 ticket</div>
+        </div>
+        <button class="tog" id="tog3d" role="switch" aria-checked="false"><span class="sw"></span>3D seat view</button>
+      </div>
+      <div class="seats-ctrls">
+        <div class="seg" id="hall-seg"><button data-h="1">Hall 1</button><button data-h="2" class="on">Hall 2</button></div>
+        <div class="stepper"><button id="t-minus" aria-label="Fewer tickets">–</button><span id="t-count" class="num">1 ticket</span><button id="t-plus" aria-label="More tickets">+</button></div>
+        <button class="chip" id="best-btn" title="Pick the best available seats together">★ Best available</button>
+      </div>
+
+      <div id="map2d">
+        <div class="mapbox"><div class="map" id="map">
+          <svg class="screen-arc" viewBox="0 0 450 28" preserveAspectRatio="none"><defs><filter id="gl"><feGaussianBlur stdDeviation="2.4"/></filter></defs><path d="M4 24 Q225 -6 446 24" stroke="#e3121f" stroke-width="3" fill="none" filter="url(#gl)" opacity=".8"/><path d="M4 24 Q225 -6 446 24" stroke="#ff2a36" stroke-width="2" fill="none"/></svg>
+          <div class="screen-label">SCREEN</div>
+          <div class="grid" id="grid"></div>
+        </div></div>
+        <div class="legend"><span><i style="background:var(--seat)"></i>Available</span><span><i style="background:var(--seat-off)"></i>Unavailable</span><span><i style="background:var(--red)"></i>Selected</span><span><i style="background:var(--seat);outline:1px dashed #6fa8ff;outline-offset:-2px"></i>Wheelchair space</span></div>
+        <div class="disclaimer">Concept demo. Movies, halls and prices are examples.</div>
+      </div>
+
+      <div id="map3d" hidden>
+        <div class="stage" id="stage">
+          <div class="loading3d" id="loading3d">Building the hall…</div>
+          <div class="ov ov-legend"><span><i style="background:#9a9aa0"></i>Available</span><span><i style="background:var(--red)"></i>Selected</span><span><i style="border:1px solid #888"></i>Unavailable</span></div>
+          <div class="ov ov-hint" id="ov-hint" hidden>Drag to look around · Click a seat to move there · Scroll to zoom</div>
+          <div class="ov ov-fs"><button id="fs-btn"><svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 4V1h3M8 1h3v3M11 8v3H8M4 11H1V8"/></svg>Full screen</button></div>
+          <div class="ov ov-zoom" id="ov-zoom"><button id="z-in" aria-label="Zoom in">+</button><button id="z-out" aria-label="Zoom out">–</button><button id="z-reset" aria-label="Reset view" style="font-size:11px">⊙</button></div>
+          <div class="ov ov-bar" id="ov-bar" hidden></div>
+          <div class="tip" id="tip" hidden></div>
+        </div>
+      </div>
+    </div>
+
+    <aside class="summary card">
+      <div class="sum-movie" id="sum-movie"></div>
+      <div class="sum-row">
+        <div><div class="eyebrow">Seats</div><div class="v num" id="sum-seats">—</div></div>
+        <div style="text-align:right"><div class="eyebrow">Tickets</div><div class="v num" id="sum-tix">0 / 1</div></div>
+      </div>
+      <div class="sum-total"><span>Total</span><b class="num" id="sum-total">0.000 KD</b></div>
+      <button class="btn btn-red btn-block" id="continue-btn">Continue</button>
+      <div class="hold" id="hold" hidden>⏱ Seats held for <b class="num" id="hold-t">10:00</b></div>
+      <details class="demo" id="demo">
+        <summary>DEMO CONTROLS</summary>
+        <div class="demo-row">Camera path<div class="seg" data-k="path"><button data-v="arc" class="on">Arc</button><button data-v="linear">Linear</button></div></div>
+        <div class="demo-row">Transition<div class="seg" data-k="dur"><button data-v="0.3">0.3 s</button><button data-v="0.6" class="on">0.6 s</button><button data-v="1.2">1.2 s</button></div></div>
+        <div class="demo-row">Unavailable seats<div class="seg" data-k="unav"><button data-v="black" class="on">Blacked out</button><button data-v="grey">Grey</button></div></div>
+      </details>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= KIOSK ================= -->
+<section class="view page" id="v-kiosk" hidden>
+  <div class="steps" id="kiosk-steps"></div>
+  <div class="two">
+    <div style="min-width:0">
+      <h1 id="kiosk-title">Add snacks, delivered to your seat</h1>
+      <div class="sub" id="kiosk-sub">Order now and skip the queue. We bring it to your seat when you ask, so nothing goes cold before the film starts.</div>
+      <div class="cats" id="cats"></div>
+      <div class="items" id="items"></div>
+    </div>
+    <aside class="card" style="position:sticky;top:16px">
+      <div class="eyebrow">Your order</div>
+      <div id="cart" style="margin-top:6px"></div>
+      <div class="sec">
+        <h2>Delivery</h2>
+        <label class="opt"><input type="radio" name="dlv" value="request" checked><span><b>To my seat, when I ask</b><small>Tap “Bring my order” on your ticket at any time during the show. It arrives in about 5 minutes.</small></span></label>
+        <label class="opt"><input type="radio" name="dlv" value="trailers"><span><b>To my seat, after the trailers</b><small>Arrives around 15 minutes after the listed start time.</small></span></label>
+        <label class="opt"><input type="radio" name="dlv" value="pickup"><span><b>Pick up at the express counter</b><small>Show your ticket QR at the counter. No queue.</small></span></label>
+        <label class="opt" style="margin-top:12px;align-items:center"><input type="checkbox" id="quiet" checked><span><b>Quiet delivery</b><small>Staff use a dim red light and don't speak during the film.</small></span></label>
+        <div class="field"><label for="note">Note for the staff (allergies, no ice…)</label><input id="note" placeholder="e.g. No ice in the drinks"></div>
+      </div>
+      <div style="margin-top:14px" id="kiosk-totals"></div>
+      <button class="btn btn-red btn-block" id="kiosk-next" style="margin-top:12px">Continue to payment</button>
+      <button class="btn btn-ghost btn-block" id="kiosk-skip" style="margin-top:8px">Skip snacks</button>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= CHECKOUT ================= -->
+<section class="view page" id="v-checkout" hidden>
+  <div class="steps" id="co-steps"></div>
+  <div class="two">
+    <div style="min-width:0">
+      <h1>Review and pay</h1>
+      <div class="sub">Your seats stay held while you pay.</div>
+      <form id="pay-form" novalidate>
+        <div class="card sec">
+          <div class="eyebrow">Contact</div>
+          <div class="field"><label for="c-name">Name on booking</label><input id="c-name" autocomplete="name" placeholder="Sara Ahmed" required></div>
+          <div class="field"><label for="c-phone">Mobile (for delivery updates)</label><input id="c-phone" autocomplete="tel" inputmode="tel" placeholder="+965 5000 0000" required></div>
+        </div>
+        <div class="card sec">
+          <div class="eyebrow">Payment method</div>
+          <div class="pay-methods" id="pms"><button type="button" class="pm on" data-pm="card">Card</button><button type="button" class="pm" data-pm="knet">KNET</button><button type="button" class="pm" data-pm="wallet">Wallet</button></div>
+          <div id="card-fields">
+            <div class="field"><label for="cc">Card number</label><input id="cc" inputmode="numeric" placeholder="4242 4242 4242 4242" autocomplete="off"></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px"><div class="field"><label for="exp">Expiry</label><input id="exp" placeholder="MM/YY" autocomplete="off"></div><div class="field"><label for="cvc">CVC</label><input id="cvc" placeholder="123" inputmode="numeric" autocomplete="off"></div></div>
+          </div>
+          <p class="small" style="margin:10px 0 0">Demo only. No payment is taken and nothing you type leaves this page.</p>
+        </div>
+        <div class="card sec">
+          <div class="eyebrow">Promo code</div>
+          <div style="display:flex;gap:8px;margin-top:8px"><input id="promo" style="flex:1;min-width:0;background:#0a0a0b;border:1px solid var(--line-2);border-radius:9px;height:36px;padding:0 10px;color:var(--fg);font:inherit" placeholder="Try MOVIENIGHT"><button type="button" class="btn btn-ghost" id="promo-btn">Apply</button></div>
+          <div class="small" id="promo-msg" style="margin-top:6px"></div>
+        </div>
+      </form>
+    </div>
+    <aside class="card" style="position:sticky;top:16px">
+      <div class="sum-movie" id="co-movie"></div>
+      <div id="co-lines"></div>
+      <button class="btn btn-red btn-block" id="pay-btn" style="margin-top:14px">Pay</button>
+      <button class="btn btn-ghost btn-block" id="co-back" style="margin-top:8px">Back to snacks</button>
+      <p class="small" style="margin:10px 0 0">Free cancellation up to 2 hours before the show. Snack orders can be changed until you request delivery.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- ================= TICKET ================= -->
+<section class="view page" id="v-ticket" hidden></section>
+
+<!-- ================= MY TICKETS ================= -->
+<section class="view page" id="v-tickets" hidden>
+  <h1>My tickets</h1>
+  <div class="sub">Bookings made on this device.</div>
+  <div class="stack" id="tickets-list" style="margin-top:16px"></div>
+</section>
+
+</main>
+<div class="toast" id="toast" role="status"></div>
+<div id="sheet-root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function(){
+"use strict";
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const KD=v=>v.toFixed(3)+" KD";
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store={get(k,d){try{const v=localStorage.getItem("mq_"+k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem("mq_"+k,JSON.stringify(v))}catch(e){}}};
+let toastT;function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("show");clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove("show"),3200)}
+function rng(seed){let s=0;for(const c of String(seed))s=(s*31+c.charCodeAt(0))|0;return()=>{s=(s*1664525+1013904223)|0;return((s>>>0)%10000)/10000}}
+
+/* ---------------- data ---------------- */
+const FORMATS={Standard:3.5,IMAX:5.5,VIP:9.0};
+const MOVIES=[
+ {id:"aurora",title:"Northern Silence",rating:"PG-13",mins:128,genre:"Drama · Adventure",syn:"A sound engineer travels to a remote Arctic station to record the aurora and finds a signal no one can explain.",art:"linear-gradient(160deg,#0b3b4a,#1fa08a 45%,#7a4fd0 80%,#130a2a)",fmts:["IMAX","Standard"]},
+ {id:"signal",title:"The Last Relay",rating:"PG-13",mins:141,genre:"Sci-fi · Thriller",syn:"When the final satellite in orbit goes dark, a ground crew of five has 48 hours to bring it back.",art:"linear-gradient(170deg,#0a0a12,#1b2a6b 50%,#e3121f 120%)",fmts:["IMAX","Standard","VIP"]},
+ {id:"paper",title:"Paper Moons",rating:"PG",mins:96,genre:"Animation · Family",syn:"Two siblings fold a paper moon that floats off their balcony, and follow it across a city made of origami.",art:"linear-gradient(160deg,#f4c15d,#ef7a52 50%,#5a2a70)",fmts:["Standard"]},
+ {id:"velocity",title:"Redline at Dawn",rating:"R",mins:118,genre:"Action",syn:"A retired rally driver takes one last run through the desert to clear her brother's name.",art:"linear-gradient(165deg,#2a0b06,#b8331a 55%,#f5a623)",fmts:["Standard","VIP"]},
+ {id:"salt",title:"Saltwater Letters",rating:"PG-13",mins:109,genre:"Romance · Drama",syn:"A pearl diver's granddaughter finds a box of letters that rewrites her family's history.",art:"linear-gradient(170deg,#06222e,#1b6f8a 55%,#e8d7b0)",fmts:["Standard","VIP"]},
+];
+const BASE_TIMES={IMAX:["13:15","16:40","20:10","23:30"],Standard:["12:00","14:45","17:30","19:15","21:45"],VIP:["15:00","18:30","22:00"]};
+function hallFor(fmt,i){return fmt==="IMAX"?2:fmt==="VIP"?1:(i%2?1:2)}
+
+/* Hall 2: grid layout transcribed from the reference video (27 columns, row K nearest the screen) */
+function span(a,b){const r=[];for(let c=a;c<=b;c++)r.push(c);return r}
+const H2=(()=>{const sides=[0,1,25,26];const rows=[];
+ const def={K:span(0,26),J:[...sides,...span(7,19)],I:[...sides,...span(5,21)],H:[...sides,...span(5,21)],G:[...sides,...span(5,21)],F:[...sides,...span(5,21)],E:[...sides,...span(6,20)],D:[...sides,...span(6,20)],C:[...sides,...span(6,20)],B:[...sides,...span(5,21)],A:span(1,25)};
+ for(const r of "KJIHGFEDCBA"){const cols=def[r].slice().sort((a,b)=>a-b);const n=cols.length;rows.push({r,seats:cols.map((c,i)=>({col:c,num:n-i}))})}
+ return {cols:27,rows,wc:["A1","A2","A24","A25"]}})();
+/* Hall 1: smaller hall, two aisles */
+const H1=(()=>{const rows=[];const letters="JIHGFEDCBA";
+ letters.split("").forEach((r,ri)=>{const w=ri<2?[...span(2,5),...span(7,15),...span(17,20)]:[...span(0,5),...span(7,15),...span(17,22)];const n=w.length;rows.push({r,seats:w.map((c,i)=>({col:c,num:n-i}))})});
+ return {cols:23,rows,wc:["A1","A2"]}})();
+const HALLS={1:H1,2:H2};
+
+/* ---------------- state ---------------- */
+const S={date:0,fmtFilter:"All",show:null,hall:2,n:1,sel:[],three:false,demo:{path:"arc",dur:0.6,unav:"black"},cart:{},cat:"Combos",holdEnd:0,promo:null,pm:"card",inShow:null};
+const DAYS=(()=>{const out=[];const d=new Date();d.setHours(0,0,0,0);for(let i=0;i<7;i++){const x=new Date(d);x.setDate(d.getDate()+i);out.push(x)}return out})();
+function dayLabel(i){return i===0?"Today":i===1?"Tomorrow":DAYS[i].toLocaleDateString(undefined,{weekday:"short"})}
+function showDate(show){const [h,m]=show.time.split(":").map(Number);const d=new Date(DAYS[show.day]);d.setHours(h,m,0,0);return d}
+function fmtTime(t){const [h,m]=t.split(":").map(Number);const d=new Date();d.setHours(h,m);return d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}
+function endTime(show){const m=MOVIES.find(x=>x.id===show.movie);const d=new Date(showDate(show).getTime()+(m.mins+15)*60000);return d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"})}
+
+function occupancy(show,hallId){const key=show.movie+show.day+show.time+show.fmt+hallId;const rand=rng(key);const H=HALLS[hallId];const taken=new Set();
+ const demo=show.movie==="aurora"&&show.day===0&&show.fmt==="Standard"&&hallId===2;
+ H.rows.forEach((row,ri)=>row.seats.forEach(s=>{const id=row.r+s.num;let p;
+  if(demo||hallId===2){ // mimic the reference: back rows and side blocks mostly sold
+   const isSide=hallId===2&&(s.col<2||s.col>24);const back="EDCBA".includes(row.r);
+   p=back?.93:isSide?.85:.16;}
+  else p=.18+ri*.04;
+  if(rand()<p)taken.add(id)}));
+ if(hallId===2){["K3","K1"].forEach(x=>taken.add(x));}
+ return taken}
+function fillPct(show){const h=hallFor(show.fmt,0);const t=occupancy(show,show.hall||h).size;const tot=HALLS[show.hall||h].rows.reduce((a,r)=>a+r.seats.length,0);return t/tot}
+
+/* ---------------- router ---------------- */
+const VIEWS=["movies","seats","kiosk","checkout","ticket","tickets"];
+function go(v){location.hash=v}
+function route(){let v=(location.hash||"#movies").slice(1);if(!VIEWS.includes(v))v="movies";
+ if(["seats","kiosk","checkout"].includes(v)&&!S.show){v="movies"}
+ if(v==="ticket"&&!S.viewing){v="tickets"}
+ VIEWS.forEach(x=>$("#v-"+x).hidden=x!==v);
+ $("#nav-movies").classList.toggle("on",v==="movies");$("#nav-tickets").classList.toggle("on",v==="tickets"||v==="ticket");
+ if(v==="movies")renderMovies();if(v==="seats")renderSeats();if(v==="kiosk")renderKiosk();if(v==="checkout")renderCheckout();if(v==="ticket")renderTicket();if(v==="tickets")renderTickets();
+ if(v!=="seats"&&T3.running)T3.stop();else if(v==="seats"&&S.three)T3.start();
+ window.scrollTo(0,0);updateBadge()}
+window.addEventListener("hashchange",route);
+
+/* ---------------- movies ---------------- */
+function renderMovies(){
+ $("#dates").innerHTML=DAYS.map((d,i)=>`<button class="date ${i===S.date?"on":""}" data-d="${i}"><small>${dayLabel(i)}</small><b>${d.getDate()}</b></button>`).join("");
+ $$("#dates .date").forEach(b=>b.onclick=()=>{S.date=+b.dataset.d;renderMovies()});
+ $("#fmt-filter").innerHTML=["All","Standard","IMAX","VIP"].map(f=>`<button class="chip ${S.fmtFilter===f?"on":""}" data-f="${f}">${f}</button>`).join("");
+ $$("#fmt-filter .chip").forEach(b=>b.onclick=()=>{S.fmtFilter=b.dataset.f;renderMovies()});
+ const now=new Date();
+ $("#movies").innerHTML=MOVIES.map((m,mi)=>{const fm=m.fmts.filter(f=>S.fmtFilter==="All"||f===S.fmtFilter);if(!fm.length)return"";
+  return `<article class="movie"><div class="poster" style="background:${m.art}"><b>${esc(m.title)}</b></div><div style="min-width:0">
+   <div class="m-title">${esc(m.title)}</div>
+   <div class="m-meta"><span class="rate">${m.rating}</span><span>${m.genre}</span><span>·</span><span>${Math.floor(m.mins/60)}h ${m.mins%60}m</span></div>
+   <p class="m-syn">${esc(m.syn)}</p>
+   ${fm.map(f=>{const times=BASE_TIMES[f].filter((_,i)=>(i+mi)%5!==4);return `<div class="fmt-group"><div class="eyebrow">${f} <span style="letter-spacing:0;text-transform:none;font-weight:500">· ${KD(FORMATS[f])}</span></div><div class="times">${times.map((t,i)=>{const show={movie:m.id,day:S.date,time:t,fmt:f,hall:hallFor(f,i+mi)};const past=showDate(show)<now;const p=fillPct(show);const cls=p>.8?"hi":p>.55?"mid":"";
+     return `<button class="time" ${past?"disabled":""} data-show='${JSON.stringify(show)}'><b class="num">${fmtTime(t)}</b><small>Hall ${show.hall} · ends ${endTime(show)}</small><div class="fill"><i class="${cls}" style="width:${Math.round(p*100)}%"></i></div></button>`}).join("")}</div></div>`}).join("")}
+  </div></article>`}).join("");
+ $$("#movies .time").forEach(b=>b.onclick=()=>{S.show=JSON.parse(b.dataset.show);S.hall=S.show.hall;S.sel=[];S.n=Math.max(1,S.n);S.cart={};S.promo=null;S.holdEnd=0;S.inShow=null;go("seats")});
+}
+
+/* ---------------- seats (2D) ---------------- */
+let taken=new Set();
+function price(){return FORMATS[S.show.fmt]}
+function seatList(){return S.sel.slice().sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
+function renderSeats(){
+ const m=MOVIES.find(x=>x.id===S.show.movie);
+ taken=occupancy(S.show,S.hall);
+ $("#seats-sub").textContent=`${S.show.fmt} · ${S.n} ticket${S.n>1?"s":""}`;
+ $("#t-count").textContent=`${S.n} ticket${S.n>1?"s":""}`;
+ $("#t-minus").disabled=S.n<=1;$("#t-plus").disabled=S.n>=10;
+ $$("#hall-seg button").forEach(b=>b.classList.toggle("on",+b.dataset.h===S.hall));
+ $("#sum-movie").innerHTML=`<div class="mini" style="background:${m.art}"></div><div><b>${esc(m.title)}</b><small>${dayLabel(S.show.day)} · ${fmtTime(S.show.time)} · Hall ${S.hall}</small></div>`;
+ $("#map").parentElement.parentElement.classList.toggle("grey-mode",S.demo.unav==="grey");
+ const H=HALLS[S.hall];const g=$("#grid");
+ g.style.gridTemplateColumns=`16px repeat(${H.cols},23px) 16px`;
+ let html="";
+ H.rows.forEach((row,ri)=>{const gr=ri+1;html+=`<div class="row-l" style="grid-row:${gr};grid-column:1">${row.r}</div>`;
+  row.seats.forEach(s=>{const id=row.r+s.num;const off=taken.has(id);const sel=S.sel.includes(id);const wc=H.wc.includes(id);
+   html+=`<button class="seat ${sel?"sel":""} ${wc?"wc":""}" style="grid-row:${gr};grid-column:${s.col+2}" data-id="${id}" ${off?"disabled":""} aria-label="Row ${row.r} seat ${s.num}${off?", unavailable":""}${wc?", wheelchair space":""}" aria-pressed="${sel}">${s.num}</button>`});
+  html+=`<div class="row-l" style="grid-row:${gr};grid-column:${H.cols+2}">${row.r}</div>`});
+ g.innerHTML=html;
+ g.onclick=e=>{const b=e.target.closest(".seat");if(!b||b.disabled)return;toggleSeat(b.dataset.id)};
+ updateSummary();
+ if(S.three)T3.rebuild();
+}
+function toggleSeat(id,forceAdd){
+ if(taken.has(id))return;
+ const i=S.sel.indexOf(id);
+ if(i>=0&&!forceAdd){S.sel.splice(i,1)}else if(i<0){S.sel.push(id);if(S.sel.length>S.n)S.sel.shift()}
+ if(S.sel.length&&!S.holdEnd)S.holdEnd=Date.now()+10*60000;
+ refreshSeatState();
+ const lone=gapCheck();if(lone)toast(`Tip: your choice leaves seat ${lone} alone. Shift over one so nobody is stranded.`);
+}
+function refreshSeatState(){
+ $$("#grid .seat").forEach(b=>{const s=S.sel.includes(b.dataset.id);b.classList.toggle("sel",s);b.setAttribute("aria-pressed",s)});
+ updateSummary();if(S.three)T3.paint();
+}
+function gapCheck(){ // single empty seat sandwiched between selection and taken seat/wall
+ const H=HALLS[S.hall];for(const id of S.sel){const r=id[0];const row=H.rows.find(x=>x.r===r);const nums=row.seats.map(s=>s.num);const n=+id.slice(1);
+  for(const d of [1,-1]){const nb=n+d,nb2=n+2*d;if(!nums.includes(nb))continue;const nbId=r+nb;if(taken.has(nbId)||S.sel.includes(nbId))continue;
+   const c1=row.seats.find(s=>s.num===n).col,c2=row.seats.find(s=>s.num===nb).col;if(Math.abs(c1-c2)!==1)continue;
+   const wall=!nums.includes(nb2)||Math.abs(row.seats.find(s=>s.num===nb2).col-c2)!==1;
+   if(wall||taken.has(r+nb2)||S.sel.includes(r+nb2))return nbId}}return null}
+function updateSummary(){
+ const list=seatList();$("#sum-seats").textContent=list.length?list.join(", "):"—";
+ $("#sum-tix").textContent=`${S.sel.length} / ${S.n}`;
+ $("#sum-total").textContent=KD(S.sel.length*price());
+ const cb=$("#continue-btn");cb.disabled=S.sel.length!==S.n;cb.textContent=S.sel.length===S.n?"Continue":`Select ${S.n-S.sel.length} more seat${S.n-S.sel.length>1?"s":""}`;
+ $("#hold").hidden=!S.holdEnd;
+}
+setInterval(()=>{if(!S.holdEnd)return;const left=Math.max(0,S.holdEnd-Date.now());const t=Math.ceil(left/1000);const el=$("#hold-t");if(el)el.textContent=`${Math.floor(t/60)}:${String(t%60).padStart(2,"0")}`;
+ if(left<=0&&!$("#v-seats").hidden){S.sel=[];S.holdEnd=0;refreshSeatState();toast("Your seat hold expired. Pick your seats again.")}},500);
+
+function bestAvailable(){
+ const H=HALLS[S.hall];const midCol=(H.cols-1)/2;const idealRow=Math.round(H.rows.length*0.45);let best=null;
+ H.rows.forEach((row,ri)=>{const s=row.seats;for(let i=0;i+S.n<=s.length;i++){const blk=s.slice(i,i+S.n);
+  if(blk.some((x,k)=>taken.has(row.r+x.num)||(k&&Math.abs(x.col-blk[k-1].col)!==1)))continue;
+  const c=(blk[0].col+blk[blk.length-1].col)/2;const score=Math.abs(c-midCol)*1.2+Math.abs(ri-idealRow)*2.2;
+  if(!best||score<best.score)best={score,ids:blk.map(x=>row.r+x.num)}}});
+ if(!best){toast(`No ${S.n} seats together in Hall ${S.hall}. Try the other hall or fewer tickets.`);return}
+ S.sel=best.ids;if(!S.holdEnd)S.holdEnd=Date.now()+10*60000;refreshSeatState();toast(`Picked ${best.ids.join(", ")}: centred, with the best sightline left.`);
+ if(S.three)T3.focusSeat(best.ids[0]);
+}
+
+$("#hall-seg").onclick=e=>{const b=e.target.closest("button");if(!b)return;S.hall=+b.dataset.h;S.sel=[];S.holdEnd=0;T3.mode="overview";renderSeats()};
+$("#t-minus").onclick=()=>{S.n=Math.max(1,S.n-1);while(S.sel.length>S.n)S.sel.shift();renderSeats()};
+$("#t-plus").onclick=()=>{S.n=Math.min(10,S.n+1);renderSeats()};
+$("#best-btn").onclick=bestAvailable;
+$("#continue-btn").onclick=()=>{if(S.sel.length!==S.n)return;go("kiosk")};
+$("#tog3d").onclick=()=>{S.three=!S.three;$("#tog3d").setAttribute("aria-checked",S.three);$("#seats-layout").classList.toggle("is3d",S.three);$("#map2d").hidden=S.three;$("#map3d").hidden=!S.three;if(S.three){T3.start();T3.rebuild()}else T3.stop()};
+$$("#demo .seg").forEach(sg=>sg.onclick=e=>{const b=e.target.closest("button");if(!b)return;sg.querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));const k=sg.dataset.k;S.demo[k]=k==="dur"?+b.dataset.v:b.dataset.v;if(k==="unav"){renderSeats()}});
+$("#fs-btn").onclick=()=>{const st=$("#stage");try{if(document.fullscreenElement)document.exitFullscreen();else st.requestFullscreen().catch(()=>toast("Full screen isn't available here."))}catch(e){toast("Full screen isn't available here.")}};
+
+/* ---------------- 3D hall ---------------- */
+const T3={running:false,inited:false,mode:"overview",fp:null,
+ init(){if(this.inited)return true;if(!window.THREE){$("#loading3d").textContent="3D view couldn't load. The seat map still works.";return false}
+  const st=$("#stage");const r=new THREE.WebGLRenderer({antialias:true});r.setPixelRatio(Math.min(2,devicePixelRatio));r.outputEncoding=THREE.sRGBEncoding;r.toneMapping=THREE.ACESFilmicToneMapping;r.toneMappingExposure=.95;
+  st.insertBefore(r.domElement,st.firstChild);this.r=r;
+  this.scene=new THREE.Scene();this.scene.background=new THREE.Color(0x030405);this.scene.fog=new THREE.Fog(0x030405,40,90);
+  this.cam=new THREE.PerspectiveCamera(50,1,.05,200);
+  this.ray=new THREE.Raycaster();this.mouse=new THREE.Vector2();
+  this.bindInput();this.inited=true;$("#loading3d").hidden=true;
+  new ResizeObserver(()=>this.resize()).observe(st);return true},
+ resize(){if(!this.r)return;const st=$("#stage");const w=st.clientWidth,h=st.clientHeight;if(!w||!h)return;this.r.setSize(w,h,false);this.cam.aspect=w/h;this.cam.updateProjectionMatrix()},
+ start(){if(!this.init())return;this.running=true;this.resize();const loop=()=>{if(!this.running)return;this.tick();requestAnimationFrame(loop)};requestAnimationFrame(loop)},
+ stop(){this.running=false},
+ screenTexture(){const c=document.createElement("canvas");c.width=1024;c.height=440;const x=c.getContext("2d");
+  let g=x.createLinearGradient(0,0,0,440);g.addColorStop(0,"#0b1630");g.addColorStop(.45,"#17485e");g.addColorStop(.75,"#2d6f83");g.addColorStop(1,"#0d2a36");x.fillStyle=g;x.fillRect(0,0,1024,440);
+  for(let i=0;i<160;i++){x.fillStyle=`rgba(255,255,255,${Math.random()*.7})`;x.fillRect(Math.random()*1024,Math.random()*180,1.4,1.4)}
+  x.filter="blur(14px)";x.globalCompositeOperation="lighter";
+  for(let b=0;b<5;b++){x.beginPath();const y0=60+b*28;x.moveTo(0,y0);for(let px=0;px<=1024;px+=32)x.lineTo(px,y0+Math.sin(px/140+b)*26+Math.sin(px/53)*8);x.lineTo(1024,y0+90);x.lineTo(0,y0+90);x.closePath();
+   const ag=x.createLinearGradient(0,y0-20,0,y0+90);ag.addColorStop(0,b%2?"rgba(170,110,255,.5)":"rgba(80,255,200,.55)");ag.addColorStop(1,"rgba(40,160,180,0)");x.fillStyle=ag;x.fill()}
+  x.filter="none";x.globalCompositeOperation="source-over";
+  const ml=[["#2a5466",270,.9],["#1d3e4f",305,.8],["#122b38",345,.7],["#0a1a22",390,.6]];
+  ml.forEach(([col,base,amp],k)=>{x.beginPath();x.moveTo(0,440);for(let px=0;px<=1024;px+=8){x.lineTo(px,base-amp*(Math.sin(px/90+k*2)*22+Math.sin(px/37+k)*9+Math.sin(px/210)*30))}x.lineTo(1024,440);x.closePath();x.fillStyle=col;x.fill()});
+  const t=new THREE.CanvasTexture(c);t.encoding=THREE.sRGBEncoding;return t},
+ rbox(w,h,d,r){const s=new THREE.Shape();const x=-w/2,y=-h/2;s.moveTo(x+r,y);s.lineTo(x+w-r,y);s.quadraticCurveTo(x+w,y,x+w,y+r);s.lineTo(x+w,y+h-r);s.quadraticCurveTo(x+w,y+h,x+w-r,y+h);s.lineTo(x+r,y+h);s.quadraticCurveTo(x,y+h,x,y+h-r);s.lineTo(x,y+r);s.quadraticCurveTo(x,y,x+r,y);
+  const g=new THREE.ExtrudeGeometry(s,{depth:d-.04,bevelEnabled:true,bevelThickness:.02,bevelSize:.02,bevelSegments:2,curveSegments:5});g.translate(0,0,-(d-.04)/2);return g},
+ rebuild(){if(!this.inited&&!this.init())return;const sc=this.scene;while(sc.children.length)sc.remove(sc.children[0]);
+  const H=HALLS[S.hall];const sp=.62,rowD=1.05,rise=.3;const nR=H.rows.length;const W=H.cols*sp+4.4;const L=nR*rowD+12;const Z0=4.2;
+  this.geo={sp,rowD,rise,W,L};const halfW=W/2;
+  // room
+  const wallM=new THREE.MeshStandardMaterial({color:0x0b1f22,roughness:.9});
+  const floorM=new THREE.MeshStandardMaterial({color:0x1a1614,roughness:1});
+  const ceilM=new THREE.MeshStandardMaterial({color:0x0d1a1c,roughness:1});
+  const topY=nR*rise+5.2;
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(W,L),floorM);floor.rotation.x=-Math.PI/2;floor.position.z=L/2-3;sc.add(floor);
+  const ceil=new THREE.Mesh(new THREE.PlaneGeometry(W,L),ceilM);ceil.rotation.x=Math.PI/2;ceil.position.set(0,topY,L/2-3);sc.add(ceil);this.ceil=ceil;
+  [-1,1].forEach(sx=>{const w=new THREE.Mesh(new THREE.PlaneGeometry(L,topY),wallM);w.rotation.y=-sx*Math.PI/2;w.position.set(sx*halfW,topY/2,L/2-3);sc.add(w);
+   // acoustic panels
+   for(let i=0;i<7;i++){const p=new THREE.Mesh(new THREE.BoxGeometry(.08,topY*.75,L/8.5),new THREE.MeshStandardMaterial({color:0x0a1a1d,roughness:.95}));p.position.set(sx*(halfW-.05),topY*.5,-1+i*(L/7.6));sc.add(p)}
+   // sconces
+   for(let i=0;i<4;i++){const z=1+i*(L-6)/3.2;const y=1.6+i*.6+nR*rise*.45;const s=new THREE.Mesh(new THREE.BoxGeometry(.06,.9,.12),new THREE.MeshBasicMaterial({color:0xffb46a}));s.position.set(sx*(halfW-.12),y,z);sc.add(s);
+    const pl=new THREE.PointLight(0xff9a48,1.3,6,2);pl.position.set(sx*(halfW-.5),y,z);sc.add(pl)}
+   const ex=new THREE.Mesh(new THREE.BoxGeometry(.05,.18,.42),new THREE.MeshBasicMaterial({color:0x2bd46a}));ex.position.set(sx*(halfW-.08),2.6,-.6);sc.add(ex)});
+  const back=new THREE.Mesh(new THREE.PlaneGeometry(W,topY),wallM);back.rotation.y=Math.PI;back.position.set(0,topY/2,L-3);sc.add(back);
+  const front=new THREE.Mesh(new THREE.PlaneGeometry(W,topY),new THREE.MeshStandardMaterial({color:0x0b1d20}));front.position.set(0,topY/2,-3);sc.add(front);
+  // screen
+  const scrW=W*.82,scrH=scrW*.43;const scr=new THREE.Mesh(new THREE.PlaneGeometry(scrW,scrH),new THREE.MeshBasicMaterial({map:this.screenTexture(),toneMapped:false}));scr.position.set(0,1.4+scrH/2,-2.9);sc.add(scr);this.screenPos=scr.position.clone();
+  const spot=new THREE.RectAreaLight?null:null;
+  const sl=new THREE.PointLight(0x4fd0c8,.9,22,2);sl.position.set(0,3.5,0);sc.add(sl);
+  const stagePl=new THREE.Mesh(new THREE.BoxGeometry(W,.5,2.6),new THREE.MeshStandardMaterial({color:0x0e2124}));stagePl.position.set(0,.25,-1.9);sc.add(stagePl);
+  sc.add(new THREE.AmbientLight(0x5a6a70,.22));sc.add(new THREE.HemisphereLight(0x2c4a50,0x1a0f08,.22));
+  // ceiling downlights
+  const dl=new THREE.MeshBasicMaterial({color:0xfff1d6});
+  for(let i=0;i<6;i++)for(let j=0;j<7;j++){const d=new THREE.Mesh(new THREE.CircleGeometry(.07,10),dl);d.rotation.x=Math.PI/2;d.position.set(-halfW+1.2+j*(W-2.4)/6,topY-.01,i*(L-3)/5.5);sc.add(d)}
+  for(let i=0;i<3;i++){const p=new THREE.PointLight(0xffe0b0,.55,14,2);p.position.set(0,topY-.5,2+i*(L-5)/2.5);sc.add(p)}
+  // tiers + seats
+  const tierM=new THREE.MeshStandardMaterial({color:0x1d1916,roughness:1});const stepM=new THREE.MeshBasicMaterial({color:0xff9d3a});
+  this.seatIndex=[];const seatsData=[];
+  H.rows.forEach((row,ri)=>{const z=Z0+ri*rowD,y=ri*rise;
+   if(ri>0){const t=new THREE.Mesh(new THREE.BoxGeometry(W,y,rowD),tierM);t.position.set(0,y/2,z);sc.add(t)}
+   // step lights along aisles at edges
+   [-1,1].forEach(sx=>{const s=new THREE.Mesh(new THREE.BoxGeometry(.5,.02,.04),stepM);s.position.set(sx*(halfW-.7),y+.012,z-rowD/2+.03);sc.add(s)});
+   const cols=row.seats.map(s=>s.col);
+   row.seats.forEach(s=>{const x=(s.col-(H.cols-1)/2)*sp;seatsData.push({id:row.r+s.num,row:row.r,num:s.num,x,y,z})});
+   // aisle step lights in gaps
+   for(let c=0;c<H.cols;c++){if(!cols.includes(c)&&cols.some(k=>k<c)&&cols.some(k=>k>c)){const s=new THREE.Mesh(new THREE.BoxGeometry(.3,.02,.03),stepM);s.position.set((c-(H.cols-1)/2)*sp,y+.012,z-rowD/2+.03);sc.add(s)}}
+  });
+  const n=seatsData.length;const cushion=this.rbox(.5,.14,.48,.06),backG=this.rbox(.52,.62,.12,.07),arm=new THREE.BoxGeometry(.07,.3,.5),cup=new THREE.CylinderGeometry(.05,.05,.03,14);
+  const mk=(g)=>{const m=new THREE.InstancedMesh(g,new THREE.MeshStandardMaterial({color:0xffffff,roughness:.75}),n);m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);sc.add(m);return m};
+  this.cush=mk(cushion);this.back=mk(backG);const armL=new THREE.InstancedMesh(arm,new THREE.MeshStandardMaterial({color:0x2a2420,roughness:.6}),n*2);sc.add(armL);const cups=new THREE.InstancedMesh(cup,new THREE.MeshStandardMaterial({color:0x111111,metalness:.5,roughness:.4}),n);sc.add(cups);
+  const M=new THREE.Matrix4(),Q=new THREE.Quaternion(),P=new THREE.Vector3(),Sc=new THREE.Vector3(1,1,1);const tilt=new THREE.Quaternion().setFromEuler(new THREE.Euler(-.18,0,0));const none=new THREE.Quaternion();
+  seatsData.forEach((s,i)=>{P.set(s.x,s.y+.42,s.z);M.compose(P,none,Sc);this.cush.setMatrixAt(i,M);
+   P.set(s.x,s.y+.82,s.z+.27);M.compose(P,tilt,Sc);this.back.setMatrixAt(i,M);
+   P.set(s.x-.3,s.y+.5,s.z+.03);M.compose(P,none,Sc);armL.setMatrixAt(i*2,M);P.set(s.x+.3,s.y+.5,s.z+.03);M.compose(P,none,Sc);armL.setMatrixAt(i*2+1,M);
+   P.set(s.x+.3,s.y+.66,s.z-.12);M.compose(P,none,Sc);cups.setMatrixAt(i,M)});
+  this.seats=seatsData;this.paint();
+  // camera reset
+  this.ovTarget=new THREE.Vector3(0,nR*rise*.35,Z0+nR*rowD*.3);this.ov={theta:0,phi:.5,dist:Math.max(W,L)*1.05};
+  this.mode="overview";this.fp=null;this.anim=null;this.applyOverview();this.ui();
+ },
+ paint(){if(!this.seats)return;const C=new THREE.Color();const grey=S.demo.unav==="grey";
+  this.seats.forEach((s,i)=>{const off=taken.has(s.id),sel=S.sel.includes(s.id),hov=this.hover===i;
+   if(sel)C.setHex(0xe3121f);else if(off)C.setHex(grey?0x55555a:0x2a1d16);else C.setHex(hov?0xffffff:0xc9b6a4);
+   this.cush.setColorAt(i,C);if(!sel&&!off)C.multiplyScalar(.92);this.back.setColorAt(i,C)});
+  this.cush.instanceColor.needsUpdate=true;this.back.instanceColor.needsUpdate=true},
+ applyOverview(){const o=this.ov;const t=this.ovTarget;this.cam.fov=42;this.cam.updateProjectionMatrix();
+  this.cam.position.set(t.x+o.dist*Math.sin(o.phi)*Math.sin(o.theta),t.y+o.dist*Math.cos(o.phi),t.z+o.dist*Math.sin(o.phi)*Math.cos(o.theta));this.cam.lookAt(t)},
+ eye(s){return new THREE.Vector3(s.x,s.y+1.15,s.z+.05)},
+ enterSeat(id){const s=this.seats.find(x=>x.id===id);if(!s)return;const from=this.cam.position.clone();const to=this.eye(s);
+  const look0=this.mode==="overview"?this.ovTarget.clone():this.lookPoint();const toLook=new THREE.Vector3(0,this.screenPos.y*.82,this.screenPos.z);
+  const yaw=Math.atan2(-(toLook.x-to.x),-(toLook.z-to.z)),pitch=Math.atan2(toLook.y-to.y,Math.hypot(toLook.x-to.x,toLook.z-to.z));
+  const fov0=this.cam.fov;this.mode="fp";this.fp={id,yaw,pitch,fov:58};
+  this.anim={t0:performance.now(),dur:S.demo.dur*1000*(from.distanceTo(to)>6?1.6:1),from,to,look0,look1:to.clone().add(new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch))),fov0,fov1:58,arc:S.demo.path==="arc"};
+  this.ui()},
+ lookPoint(){const f=this.fp;const e=this.cam.position;return e.clone().add(new THREE.Vector3(-Math.sin(f.yaw)*Math.cos(f.pitch),Math.sin(f.pitch),-Math.cos(f.yaw)*Math.cos(f.pitch)))},
+ backToMap(){const from=this.cam.position.clone();const look0=this.lookPoint();this.mode="overview";this.fp=null;const o=this.ov,t=this.ovTarget;
+  const to=new THREE.Vector3(t.x+o.dist*Math.sin(o.phi)*Math.sin(o.theta),t.y+o.dist*Math.cos(o.phi),t.z+o.dist*Math.sin(o.phi)*Math.cos(o.theta));
+  this.anim={t0:performance.now(),dur:S.demo.dur*1000*1.6,from,to,look0,look1:t.clone(),fov0:this.cam.fov,fov1:42,arc:S.demo.path==="arc"};this.ui()},
+ focusSeat(id){if(this.mode==="overview")this.ui()},
+ tick(){const a=this.anim;
+  if(a){let k=Math.min(1,(performance.now()-a.t0)/Math.max(1,a.dur));const e=k<.5?4*k*k*k:1-Math.pow(-2*k+2,3)/2;
+   const p=a.from.clone().lerp(a.to,e);if(a.arc)p.y+=Math.sin(Math.PI*e)*Math.min(5,a.from.distanceTo(a.to)*.25);
+   this.cam.position.copy(p);this.cam.lookAt(a.look0.clone().lerp(a.look1,e));this.cam.fov=a.fov0+(a.fov1-a.fov0)*e;this.cam.updateProjectionMatrix();
+   if(k>=1){this.anim=null;if(this.mode==="overview")this.applyOverview()}}
+  else if(this.mode==="fp"){const s=this.seats.find(x=>x.id===this.fp.id);this.cam.position.copy(this.eye(s));this.cam.lookAt(this.lookPoint());this.cam.fov=this.fp.fov;this.cam.updateProjectionMatrix()}
+  this.r.render(this.scene,this.cam)},
+ pick(cx,cy){const rc=this.r.domElement.getBoundingClientRect();this.mouse.set(((cx-rc.left)/rc.width)*2-1,-((cy-rc.top)/rc.height)*2+1);this.ray.setFromCamera(this.mouse,this.cam);
+  const h=this.ray.intersectObjects([this.cush,this.back]);return h.length?h[0].instanceId:-1},
+ bindInput(){const el=$("#stage");let down=null,moved=false;
+  el.addEventListener("pointerdown",e=>{if(e.target.closest(".ov"))return;down={x:e.clientX,y:e.clientY};moved=false;el.setPointerCapture(e.pointerId)});
+  el.addEventListener("pointermove",e=>{if(!this.seats)return;
+   if(down){const dx=e.clientX-down.x,dy=e.clientY-down.y;if(Math.abs(dx)+Math.abs(dy)>4)moved=true;down={x:e.clientX,y:e.clientY};
+    if(moved&&!this.anim){if(this.mode==="fp"){this.fp.yaw+=dx*.004;this.fp.pitch=Math.max(-.7,Math.min(.8,this.fp.pitch+dy*.004))}else{this.ov.theta=Math.max(-.9,Math.min(.9,this.ov.theta-dx*.005));this.ov.phi=Math.max(.15,Math.min(1.2,this.ov.phi-dy*.005));this.applyOverview()}}
+    $("#tip").hidden=true;return}
+   const i=this.anim?-1:this.pick(e.clientX,e.clientY);if(i!==this.hover){this.hover=i;this.paint()}
+   const tip=$("#tip");if(i<0){tip.hidden=true;el.style.cursor=this.mode==="fp"?"grab":"default";return}
+   const s=this.seats[i];const off=taken.has(s.id);const rc=el.getBoundingClientRect();
+   el.style.cursor=off?"not-allowed":"pointer";
+   tip.innerHTML=`<b>Row ${s.row} · Seat ${s.num}</b><br><span>${off?"Unavailable":`${S.show.fmt} · ${KD(price())}`}</span>${off?"":`<br><span>${this.mode==="fp"?"Click to move to this seat":S.sel.includes(s.id)?"Click to remove":"Click to select"}</span>`}`;
+   tip.style.left=(e.clientX-rc.left)+"px";tip.style.top=(e.clientY-rc.top)+"px";tip.hidden=false});
+  el.addEventListener("pointerup",e=>{if(!down)return;down=null;if(moved||!this.seats)return;const i=this.pick(e.clientX,e.clientY);if(i<0)return;const s=this.seats[i];if(taken.has(s.id))return;
+   if(this.mode==="fp"){this.enterSeat(s.id)}else{toggleSeat(s.id);this.lastPicked=S.sel.includes(s.id)?s.id:null;this.ui()}});
+  el.addEventListener("pointerleave",()=>{$("#tip").hidden=true;if(this.hover>=0){this.hover=-1;this.paint()}});
+  el.addEventListener("wheel",e=>{if(!this.seats)return;e.preventDefault();if(this.mode==="fp"){this.fp.fov=Math.max(28,Math.min(80,this.fp.fov+e.deltaY*.03))}else{this.zoom(e.deltaY>0?1.08:.93)}},{passive:false});
+  $("#z-in").onclick=()=>this.zoom(.85);$("#z-out").onclick=()=>this.zoom(1.18);$("#z-reset").onclick=()=>{this.ov.theta=0;this.ov.phi=.5;this.ov.dist=Math.max(this.geo.W,this.geo.L)*1.05;this.applyOverview()};
+ },
+ zoom(f){if(this.mode!=="overview")return;this.ov.dist=Math.max(6,Math.min(60,this.ov.dist*f));this.applyOverview()},
+ ui(){const bar=$("#ov-bar");$("#ov-hint").hidden=this.mode!=="fp";$("#ov-zoom").hidden=this.mode==="fp";
+  const sub=`${S.show.fmt} · ${KD(price())}`;
+  if(this.mode==="fp"){const s=this.seats.find(x=>x.id===this.fp.id);const isSel=S.sel.includes(s.id);
+   bar.innerHTML=`<div class="l"><div class="eyebrow" style="font-size:8.5px">View from</div><b>Row ${s.row} · Seat ${s.num}</b><small>${sub}</small></div><button class="btn ${isSel?"btn-ghost":"btn-red"}" id="fp-sel">${isSel?"Remove this seat":"Select this seat"}</button><button class="btn btn-ghost" id="fp-back">Back to map</button>`;
+   bar.hidden=false;$("#fp-sel").onclick=()=>{toggleSeat(s.id,!isSel);this.ui()};$("#fp-back").onclick=()=>this.backToMap();return}
+  const id=this.lastPicked&&S.sel.includes(this.lastPicked)?this.lastPicked:S.sel[S.sel.length-1];
+  if(!id){bar.hidden=true;return}const s=this.seats.find(x=>x.id===id);if(!s){bar.hidden=true;return}
+  bar.innerHTML=`<div class="l"><div class="eyebrow" style="font-size:8.5px">Selected seat</div><b>Row ${s.row} · Seat ${s.num}</b><small>${sub}</small></div><button class="btn btn-red" id="ov-view"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/></svg>View from this seat</button><button class="btn btn-ghost" id="ov-rm">Remove</button>`;
+  bar.hidden=false;$("#ov-view").onclick=()=>this.enterSeat(id);$("#ov-rm").onclick=()=>{toggleSeat(id);this.ui()}}
+};
+const _refresh=refreshSeatState;refreshSeatState=function(){_refresh();if(S.three&&T3.inited)T3.ui()};
+
+/* ---------------- kiosk ---------------- */
+const MENU=[
+ {id:"duo",cat:"Combos",name:"Date Night Combo",desc:"Large popcorn, 2 regular drinks, 1 chocolate bar.",price:4.25,was:5.1,art:"🍿",bg:"#3a1418",tags:["Serves 2"]},
+ {id:"fam",cat:"Combos",name:"Family Combo",desc:"2 large popcorns, 4 drinks, nachos to share.",price:8.5,was:10.25,art:"🎬",bg:"#2a1a0a",tags:["Serves 4"]},
+ {id:"solo",cat:"Combos",name:"Solo Combo",desc:"Medium popcorn and a regular drink.",price:2.75,was:3.2,art:"🥤",bg:"#122030",tags:[]},
+ {id:"pop",cat:"Popcorn",name:"Salted Popcorn",desc:"Popped fresh every 20 minutes.",sizes:{S:1.0,M:1.5,L:2.0},art:"🍿",bg:"#33250c",tags:["Vegan","Gluten-free"]},
+ {id:"car",cat:"Popcorn",name:"Caramel Popcorn",desc:"Butter caramel, sea-salt finish.",sizes:{S:1.25,M:1.75,L:2.25},art:"🍯",bg:"#3b220a",tags:["Vegetarian","Contains dairy"]},
+ {id:"mix",cat:"Popcorn",name:"Half & Half",desc:"Salted and caramel in one bucket.",sizes:{M:1.75,L:2.25},art:"🌗",bg:"#2a2016",tags:["Vegetarian"]},
+ {id:"nach",cat:"Hot food",name:"Loaded Nachos",desc:"Cheese sauce, jalapeños, salsa.",price:2.25,art:"🧀",bg:"#3a2a06",tags:["Vegetarian","Spicy"]},
+ {id:"dog",cat:"Hot food",name:"Beef Hot Dog",desc:"Toasted brioche, mustard, crispy onion.",price:2.0,art:"🌭",bg:"#3a1a0e",tags:["Halal"]},
+ {id:"tend",cat:"Hot food",name:"Chicken Tenders",desc:"4 pieces with fries and garlic dip.",price:2.75,art:"🍗",bg:"#382010",tags:["Halal"]},
+ {id:"soda",cat:"Drinks",name:"Soft Drink",desc:"Cola, lemon-lime or orange. Free refill in-seat.",sizes:{S:.6,M:.8,L:1.0},art:"🥤",bg:"#0f2236",tags:["Refill"]},
+ {id:"ice",cat:"Drinks",name:"Iced Latte",desc:"Double shot, choose milk at the counter.",price:1.5,art:"🧋",bg:"#2a1d14",tags:["Contains dairy"]},
+ {id:"water",cat:"Drinks",name:"Still Water",desc:"500 ml.",price:.3,art:"💧",bg:"#0e2a30",tags:["Vegan"]},
+ {id:"choc",cat:"Sweets",name:"Chocolate Bar",desc:"Milk chocolate with hazelnut.",price:.6,art:"🍫",bg:"#2a160e",tags:["Contains nuts"]},
+ {id:"gum",cat:"Sweets",name:"Fruit Gummies",desc:"Sour mix bag.",price:.75,art:"🍬",bg:"#30102a",tags:["Gelatin-free"]},
+ {id:"icecr",cat:"Sweets",name:"Ice Cream Cup",desc:"Vanilla or chocolate. Brought frozen when you ask.",price:1.25,art:"🍨",bg:"#1b1f33",tags:["Contains dairy"]},
+];
+const CATS=["Combos","Popcorn","Hot food","Drinks","Sweets"];
+const chosenSize={};
+function cartLines(cart){return Object.entries(cart).map(([k,q])=>{const [id,sz]=k.split(":");const it=MENU.find(m=>m.id===id);const p=it.sizes?it.sizes[sz]:it.price;return {k,it,sz,q,p,sum:p*q}})}
+function cartSub(cart){return cartLines(cart).reduce((a,l)=>a+l.sum,0)}
+function deliveryFee(cart,mode){const sub=cartSub(cart);if(!sub||mode==="pickup")return 0;return sub>=5?0:.25}
+function stepsHTML(cur){const st=["Showtime","Seats","Snacks","Pay"];return st.map((s,i)=>`<span class="${i<cur?"done":""}">${i<cur?"✓ ":""}${i===cur?`<b>${s}</b>`:s}</span>`).join('<span>›</span>')}
+function renderKiosk(){
+ const inShow=!!S.inShow;
+ $("#kiosk-steps").innerHTML=inShow?`<a href="#ticket" style="color:var(--muted)">← Back to my ticket</a>`:stepsHTML(2);
+ $("#kiosk-title").textContent=inShow?"Order more to your seat":"Add snacks, delivered to your seat";
+ $("#kiosk-sub").textContent=inShow?`We'll bring it to ${S.inShow.seats.join(", ")} in Hall ${S.inShow.hall}. Pay with your saved method.`:"Order now and skip the queue. We bring it to your seat when you ask, so nothing goes cold before the film starts.";
+ $("#kiosk-skip").hidden=inShow;$("#kiosk-next").textContent=inShow?"Place order":"Continue to payment";
+ $$('input[name="dlv"]').forEach(r=>r.closest(".opt").hidden=inShow&&r.value!=="request");if(inShow)$('input[name="dlv"][value="request"]').checked=true;
+ if(inShow)$('input[name="dlv"][value="request"]').closest(".opt").querySelector("b").textContent="To my seat, now";
+ else $('input[name="dlv"][value="request"]').closest(".opt").querySelector("b").textContent="To my seat, when I ask";
+ $("#cats").innerHTML=CATS.map(c=>`<button class="chip ${S.cat===c?"on":""}" data-c="${c}">${c}</button>`).join("");
+ $$("#cats .chip").forEach(b=>b.onclick=()=>{S.cat=b.dataset.c;renderKiosk()});
+ $("#items").innerHTML=MENU.filter(m=>m.cat===S.cat).map(it=>{const sz=it.sizes?(chosenSize[it.id]||Object.keys(it.sizes)[1]||Object.keys(it.sizes)[0]):"";const key=it.id+":"+sz;const q=S.cart[key]||0;const p=it.sizes?it.sizes[sz]:it.price;
+  return `<div class="item"><div class="art" style="background:radial-gradient(circle at 50% 40%,${it.bg},#0c0c0e)">${it.art}</div><h3>${it.name}</h3><p>${it.desc}</p><div class="tags">${it.was?`<span class="tag save">Save ${KD(it.was-it.price)}</span>`:""}${it.tags.map(t=>`<span class="tag">${t}</span>`).join("")}</div>
+  <div class="foot"><div><div class="price num">${KD(p)}</div>${it.sizes?`<div class="sizes" style="margin-top:4px">${Object.keys(it.sizes).map(s=>`<button data-size="${it.id}:${s}" class="${s===sz?"on":""}" aria-label="Size ${s}">${s}</button>`).join("")}</div>`:""}</div>
+  ${q?`<div class="qty"><button data-dec="${key}" aria-label="Remove one">–</button><span>${q}</span><button data-inc="${key}" aria-label="Add one">+</button></div>`:`<button class="add" data-inc="${key}">Add</button>`}</div></div>`}).join("");
+ $("#items").onclick=e=>{const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.size){const [id,s]=b.dataset.size.split(":");chosenSize[id]=s;renderKiosk();return}
+  if(b.dataset.inc){S.cart[b.dataset.inc]=(S.cart[b.dataset.inc]||0)+1}
+  if(b.dataset.dec){S.cart[b.dataset.dec]--;if(S.cart[b.dataset.dec]<=0)delete S.cart[b.dataset.dec]}
+  renderKiosk()};
+ const lines=cartLines(S.cart);
+ $("#cart").innerHTML=lines.length?lines.map(l=>`<div class="cart-line"><div>${l.q}× ${l.it.name}${l.sz?` <span class="muted">(${l.sz})</span>`:""}</div><div class="num">${KD(l.sum)}</div></div>`).join(""):`<p class="small" style="margin:6px 0">Nothing added yet. Combos save up to ${KD(1.75)}.</p>`;
+ const mode=$('input[name="dlv"]:checked').value;const fee=deliveryFee(S.cart,mode);const sub=cartSub(S.cart);
+ $("#kiosk-totals").innerHTML=sub?`<div class="line"><span class="muted">Snacks</span><span class="num">${KD(sub)}</span></div><div class="line"><span class="muted">Seat delivery</span><span class="num">${mode==="pickup"?"—":fee?KD(fee):"Free"}</span></div>${mode!=="pickup"&&fee?`<div class="small">Free delivery on orders over 5.000 KD.</div>`:""}`:"";
+ $("#kiosk-next").disabled=inShow&&!sub;
+}
+document.addEventListener("change",e=>{if(e.target.name==="dlv"&&!$("#v-kiosk").hidden)renderKiosk()});
+$("#kiosk-next").onclick=()=>{
+ if(S.inShow){const b=S.inShow;const ord={id:"o"+Date.now(),items:cartLines(S.cart).map(l=>({name:l.it.name,sz:l.sz,q:l.q,sum:l.sum})),total:cartSub(S.cart)+deliveryFee(S.cart,"request"),mode:"request",quiet:$("#quiet").checked,note:$("#note").value,status:0};
+  b.orders.push(ord);saveBooking(b);S.cart={};S.inShow=null;S.viewing=b.ref;requestDelivery(b.ref,ord.id);go("ticket");return}
+ go("checkout")};
+$("#kiosk-skip").onclick=()=>{S.cart={};go("checkout")};
+
+/* ---------------- checkout ---------------- */
+function totals(){const tix=S.n*price();const sub=cartSub(S.cart);const mode=($('input[name="dlv"]:checked')||{}).value||"request";const fee=deliveryFee(S.cart,mode);const book=.1*S.n;
+ let disc=0;if(S.promo==="MOVIENIGHT")disc=Math.min(sub,1.5);return {tix,sub,fee,book,disc,total:tix+sub+fee+book-disc,mode}}
+function renderCheckout(){
+ $("#co-steps").innerHTML=stepsHTML(3);const m=MOVIES.find(x=>x.id===S.show.movie);
+ $("#co-movie").innerHTML=`<div class="mini" style="background:${m.art}"></div><div><b>${esc(m.title)}</b><small>${dayLabel(S.show.day)} · ${fmtTime(S.show.time)} · Hall ${S.hall} · ${seatList().join(", ")}</small></div>`;
+ const t=totals();
+ $("#co-lines").innerHTML=`<div class="line"><span>${S.n} × ${S.show.fmt} ticket</span><span class="num">${KD(t.tix)}</span></div>
+  ${cartLines(S.cart).map(l=>`<div class="line"><span class="muted">${l.q}× ${l.it.name}${l.sz?` (${l.sz})`:""}</span><span class="num">${KD(l.sum)}</span></div>`).join("")}
+  ${t.sub?`<div class="line"><span class="muted">${t.mode==="pickup"?"Express pickup":"Seat delivery"}</span><span class="num">${t.fee?KD(t.fee):"Free"}</span></div>`:""}
+  <div class="line"><span class="muted">Booking fee</span><span class="num">${KD(t.book)}</span></div>
+  ${t.disc?`<div class="line" style="color:#7ee2a8"><span>MOVIENIGHT</span><span class="num">−${KD(t.disc)}</span></div>`:""}
+  <div class="line tot"><span>Total</span><span class="num">${KD(t.total)}</span></div>`;
+ $("#pay-btn").textContent=`Pay ${KD(t.total)}`;
+ const p=store.get("contact",{});if(p.name&&!$("#c-name").value)$("#c-name").value=p.name;if(p.phone&&!$("#c-phone").value)$("#c-phone").value=p.phone;
+}
+$("#pms").onclick=e=>{const b=e.target.closest(".pm");if(!b)return;S.pm=b.dataset.pm;$$("#pms .pm").forEach(x=>x.classList.toggle("on",x===b));$("#card-fields").hidden=S.pm!=="card"};
+$("#promo-btn").onclick=()=>{const c=$("#promo").value.trim().toUpperCase();if(c==="MOVIENIGHT"){if(!cartSub(S.cart)){$("#promo-msg").textContent="MOVIENIGHT takes up to 1.500 KD off snacks. Add a snack to use it.";return}S.promo=c;$("#promo-msg").textContent="Applied: up to 1.500 KD off your snacks.";}else{S.promo=null;$("#promo-msg").textContent=c?"That code isn't valid. Check the spelling and try again.":"Enter a code first."}renderCheckout()};
+$("#co-back").onclick=()=>go("kiosk");
+$("#pay-form").onsubmit=e=>e.preventDefault();
+$("#pay-btn").onclick=()=>{
+ const name=$("#c-name").value.trim(),phone=$("#c-phone").value.trim();
+ if(!name||!phone){toast("Add your name and mobile number so we can reach you about delivery.");($("#c-name").value.trim()?$("#c-phone"):$("#c-name")).focus();return}
+ store.set("contact",{name,phone});const t=totals();
+ const ref="MQ"+Math.random().toString(36).slice(2,8).toUpperCase();
+ const b={ref,name,movie:S.show.movie,show:S.show,hall:S.hall,seats:seatList(),fmt:S.show.fmt,total:t.total,created:Date.now(),orders:[]};
+ if(t.sub)b.orders.push({id:"o"+Date.now(),items:cartLines(S.cart).map(l=>({name:l.it.name,sz:l.sz,q:l.q,sum:l.sum})),total:t.sub+t.fee-t.disc,mode:t.mode,quiet:$("#quiet").checked,note:$("#note").value,status:t.mode==="pickup"?-1:0});
+ saveBooking(b);S.viewing=ref;S.sel=[];S.holdEnd=0;S.cart={};
+ $("#pay-btn").disabled=true;$("#pay-btn").textContent="Processing…";
+ setTimeout(()=>{$("#pay-btn").disabled=false;toast("Payment confirmed. Enjoy the film.");go("ticket")},900)};
+
+/* ---------------- bookings ---------------- */
+function bookings(){return store.get("bookings",[])}
+let memBookings=null;
+function allBookings(){const s=bookings();return s.length?s:(memBookings||[])}
+function saveBooking(b){let a=allBookings().filter(x=>x.ref!==b.ref);a.unshift(b);memBookings=a;store.set("bookings",a);updateBadge()}
+function getBooking(ref){return allBookings().find(x=>x.ref===ref)}
+function updateBadge(){const n=allBookings().filter(b=>showDate(b.show).getTime()+3*3600e3>Date.now()).length;const el=$("#tix-badge");el.textContent=n;el.hidden=!n}
+
+const STAGES=["Received","Preparing","On the way","Delivered"];
+const timers={};
+function requestDelivery(ref,oid){const b=getBooking(ref);const o=b.orders.find(x=>x.id===oid);if(!o||o.status>0)return;o.status=1;o.requestedAt=Date.now();saveBooking(b);
+ toast("Order sent to the kitchen. We'll bring it to "+b.seats[0]+".");
+ const adv=()=>{const bb=getBooking(ref);const oo=bb.orders.find(x=>x.id===oid);if(!oo||oo.status>=4)return;oo.status++;saveBooking(bb);if(S.viewing===ref&&!$("#v-ticket").hidden)renderTicket();
+  if(oo.status===3)toast("Your order is on its way to your seat.");if(oo.status===4){toast("Delivered. Enjoy!");return}
+  timers[oid]=setTimeout(adv,oo.status===2?5000:6000)};
+ timers[oid]=setTimeout(adv,3500);if(!$("#v-ticket").hidden)renderTicket()}
+function ics(b){const m=MOVIES.find(x=>x.id===b.movie);const d=showDate(b.show);const e=new Date(d.getTime()+(m.mins+15)*60000);const f=x=>x.toISOString().replace(/[-:]/g,"").split(".")[0]+"Z";
+ return `BEGIN:VCALENDAR\nVERSION:2.0\nBEGIN:VEVENT\nUID:${b.ref}@marquee\nDTSTART:${f(d)}\nDTEND:${f(e)}\nSUMMARY:${m.title} (Hall ${b.hall}\\, seats ${b.seats.join(" ")})\nDESCRIPTION:Booking ${b.ref}\nEND:VEVENT\nEND:VCALENDAR`}
+
+function renderTicket(){
+ const b=getBooking(S.viewing);const v=$("#v-ticket");if(!b){go("tickets");return}
+ const m=MOVIES.find(x=>x.id===b.movie);const start=showDate(b.show);const mins=Math.round((start-Date.now())/60000);
+ const when=mins>60*24?`in ${Math.round(mins/1440)} days`:mins>60?`in ${Math.floor(mins/60)}h ${mins%60}m`:mins>0?`in ${mins} min`:mins>-m.mins?"Now playing":"Finished";
+ const row=b.seats[0][0];const H=HALLS[b.hall];const ri=H.rows.findIndex(r=>r.r===row);const door=b.hall===2?(ri<5?"Door 2B (lower)":"Door 2A (upper)"):"Door 1A";
+ const side=+b.seats[0].slice(1)>H.cols/2?"left":"right";
+ v.innerHTML=`<div class="steps"><a href="#tickets" style="color:var(--muted)">← My tickets</a></div>
+ <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:14px"><div><div class="eyebrow">Booking ${b.ref}</div><h1 style="font-size:22px;margin-top:4px;font-family:var(--f-disp)">${esc(m.title)}</h1></div><div style="text-align:right"><div class="eyebrow">Starts</div><div class="count num">${when}</div></div></div>
+ <div class="ticket"><div class="main"><div style="display:flex;gap:14px;align-items:center"><div class="poster" style="background:${m.art};width:60px;flex:0 0 60px;padding:5px"><b style="font-size:8px">${esc(m.title)}</b></div><div><b style="font-size:15px">${start.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"})}</b><div class="small">${fmtTime(b.show.time)} – ${endTime(b.show)} · ${b.fmt} · ${m.rating}</div></div></div>
+  <div class="kv"><div><small>Hall</small><b>${b.hall}</b></div><div><small>Row</small><b>${row}</b></div><div><small>Seats</small><b class="num">${b.seats.map(s=>s.slice(1)).join(", ")}</b></div><div><small>Paid</small><b class="num">${KD(b.total)}</b></div></div>
+  <div class="sec"><div class="eyebrow" style="margin-bottom:8px">Finding your seat</div>
+   <div class="dir"><span class="n">1</span><span>Enter through <b>${door}</b>, ${b.hall===2?"past the express snack counter":"opposite the box office"}.</span></div>
+   <div class="dir" style="margin-top:6px"><span class="n">2</span><span>Take the <b>${side}</b> aisle and count ${ri+1} row${ri?"s":""} from the screen to row <b>${row}</b>. The step lights carry the row letters.</span></div>
+   <div class="dir" style="margin-top:6px"><span class="n">3</span><span>Doors open 20 minutes before the show. Trailers run for about 15 minutes.</span></div></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px"><button class="btn btn-ghost" id="t-cal">Add to calendar</button><button class="btn btn-ghost" id="t-copy">Copy booking details</button><button class="btn btn-ghost" id="t-more">Order snacks to my seat</button></div>
+ </div><div class="stub"><div class="qr" id="qr"></div><b style="font-size:15px;letter-spacing:.1em">${b.ref}</b><small>Scan at the door and at the express counter</small></div></div>
+ <div class="stack" style="margin-top:16px">${b.orders.map(o=>orderCard(b,o)).join("")||`<div class="card"><b>No snacks on this booking</b><p class="small" style="margin:6px 0 0">You can still order during the show and we'll bring it to ${b.seats.join(", ")}.</p></div>`}
+  <div class="card"><div class="eyebrow">Need something at your seat?</div><p class="small" style="margin:6px 0 0">A staff member comes quietly. No charge.</p><div class="quick">${["Extra napkins","Ketchup & sauces","Spill clean-up","Too cold / too warm","Report a disturbance"].map(x=>`<button class="chip" data-q="${x}">${x}</button>`).join("")}</div></div></div>`;
+ try{new QRCode($("#qr"),{text:`MARQUEE|${b.ref}|H${b.hall}|${b.seats.join(",")}`,width:140,height:140,colorDark:"#000",colorLight:"#fff"})}catch(e){$("#qr").textContent=b.ref}
+ $("#t-cal").onclick=()=>{const txt=ics(b);sheet(`<div class="eyebrow">Add to calendar</div><p class="small">Copy this event and paste it into a new .ics file, or add the details by hand.</p><textarea readonly style="width:100%;height:150px;background:#0a0a0b;color:var(--fg);border:1px solid var(--line-2);border-radius:9px;font:11px ui-monospace,monospace;padding:8px">${esc(txt)}</textarea><button class="btn btn-red btn-block" id="sh-copy" style="margin-top:10px">Copy event</button>`,()=>{$("#sh-copy").onclick=()=>copy(txt,"Event copied.")})};
+ $("#t-copy").onclick=()=>copy(`${m.title} — ${start.toLocaleDateString()} ${fmtTime(b.show.time)}, Hall ${b.hall}, seats ${b.seats.join(", ")}. Booking ${b.ref}.`,"Booking details copied. Paste them to your group.");
+ $("#t-more").onclick=()=>{S.inShow=b;S.show=b.show;S.hall=b.hall;S.cart={};S.cat="Combos";go("kiosk")};
+ v.querySelectorAll("[data-req]").forEach(x=>x.onclick=()=>requestDelivery(b.ref,x.dataset.req));
+ v.querySelectorAll("[data-q]").forEach(x=>x.onclick=()=>{x.classList.add("on");toast(`“${x.dataset.q}” sent. Someone is on the way to ${b.seats[0]}.`)});
+ v.querySelectorAll("[data-cancel]").forEach(x=>x.onclick=()=>{const o=b.orders.find(k=>k.id===x.dataset.cancel);b.orders=b.orders.filter(k=>k!==o);saveBooking(b);toast(`Snack order cancelled. ${KD(o.total)} refunded to your card.`);renderTicket()});
+}
+function orderCard(b,o){
+ const items=o.items.map(i=>`${i.q}× ${i.name}${i.sz?` (${i.sz})`:""}`).join(" · ");
+ if(o.status===-1)return `<div class="card"><div class="eyebrow">Snacks · express pickup</div><p style="margin:6px 0;font-size:13px">${esc(items)}</p><p class="small" style="margin:0">Show the QR code at the express counter in the lobby. Your order is bagged when you scan.</p></div>`;
+ const st=o.status;const track=STAGES.map((s,i)=>`<div class="${st>i+1||st===4?"on":st===i+1?"on now":""}">${s}</div>`).join("");
+ let head,body;
+ if(st===0){head=o.mode==="trailers"?"Arrives after the trailers":"Ready when you are";
+  body=`<p class="small" style="margin:4px 0 12px">${o.mode==="trailers"?"We'll start it automatically. You can also ask for it sooner.":"Tap when you're settled in. It reaches your seat in about 5 minutes."}</p><button class="btn btn-red btn-block big-req" data-req="${o.id}">🍿 Bring my order to ${b.seats[0]}</button><div style="display:flex;justify-content:space-between;margin-top:8px"><span class="small">${o.quiet?"Quiet delivery on":"Standard delivery"}${o.note?` · “${esc(o.note)}”`:""}</span><button class="small" data-cancel="${o.id}" style="text-decoration:underline">Cancel order</button></div>`}
+ else if(st<4){head=st===3?`<span class="status-dot"></span>On the way to ${b.seats[0]}`:`<span class="status-dot"></span>${STAGES[st-1]}`;body=`<div class="track">${track}</div><p class="small" style="margin:10px 0 0">${st===3?"Yousef is bringing it now. Look for the dim red light.":"Usually about 5 minutes. Stay in your seat, we'll come to you."}</p>`}
+ else{head="Delivered";body=`<div class="track">${track}</div><p class="small" style="margin:10px 0 0">Enjoy. Drinks from this order get free refills: tap “Order snacks to my seat”.</p>`}
+ return `<div class="card"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><div class="eyebrow">Seat delivery</div><span class="num small">${KD(o.total)}</span></div><h2 style="font-size:15px;margin-top:6px">${head}</h2><p style="margin:4px 0 0;font-size:12.5px;color:#c9c9cf">${esc(items)}</p>${body}</div>`}
+
+function renderTickets(){
+ const a=allBookings();const el=$("#tickets-list");
+ if(!a.length){el.innerHTML=`<div class="empty">No bookings yet.<br><br><a class="btn btn-red" href="#movies">Find a showtime</a></div>`;return}
+ el.innerHTML=a.map(b=>{const m=MOVIES.find(x=>x.id===b.movie);const pend=b.orders.some(o=>o.status===0);return `<button class="booking-row" data-ref="${b.ref}"><div class="poster" style="background:${m.art};width:44px;flex:0 0 44px;padding:4px"><b style="font-size:6px">&nbsp;</b></div><div style="flex:1;min-width:0"><b style="font-size:14px">${esc(m.title)}</b><div class="small">${dayLabel(b.show.day)} · ${fmtTime(b.show.time)} · Hall ${b.hall} · ${b.seats.join(", ")}</div>${pend?`<div class="small" style="color:var(--amber)">Snacks ready to request</div>`:""}</div><span class="muted">›</span></button>`}).join("");
+ el.querySelectorAll("[data-ref]").forEach(x=>x.onclick=()=>{S.viewing=x.dataset.ref;go("ticket")})}
+
+function copy(txt,msg){const done=()=>toast(msg);try{navigator.clipboard.writeText(txt).then(done,()=>toast("Copy isn't available here. Select the text and copy it."))}catch(e){toast("Copy isn't available here. Select the text and copy it.")}}
+function sheet(html,after){const r=$("#sheet-root");r.innerHTML=`<div class="sheet-bg"><div class="card sheet">${html}<button class="btn btn-ghost btn-block" id="sh-close" style="margin-top:8px">Close</button></div></div>`;$("#sh-close").onclick=()=>r.innerHTML="";r.querySelector(".sheet-bg").onclick=e=>{if(e.target.classList.contains("sheet-bg"))r.innerHTML=""};after&&after()}
+
+/* ---------------- boot ---------------- */
+// Seed: open on the same show as the reference video if someone deep-links to #seats
+if((location.hash==="#seats")&&!S.show){S.show={movie:"aurora",day:0,time:"21:45",fmt:"Standard",hall:2};S.hall=2;S.sel=["F12"];S.holdEnd=Date.now()+600000}
+route();
+})();
+</script>
+</body>
+</html>
