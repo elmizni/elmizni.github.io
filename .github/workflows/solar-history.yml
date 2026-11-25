@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: '23 * * * *'
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - .github/scripts/solar-history.mjs
+      - .github/workflows/solar-history.yml
 
 permissions:
   contents: write
