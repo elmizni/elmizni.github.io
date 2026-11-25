@@ -11,6 +11,7 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="apple-touch-icon" href="img/icon-180.png">
 <link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="more.css?v=1">
 <title>Solar Home</title>
 <style>
 :root{--ink:#fff;--ink-2:rgba(255,255,255,.78);--ink-3:rgba(255,255,255,.5);
@@ -106,11 +107,12 @@ main{padding:0 14px calc(var(--sb) + 24px);max-width:640px;margin:0 auto}
   <div class="banner" id="banner"><b>Sample numbers.</b> Tap the gear to connect your Victron account and see your real system.</div>
   <div class="flow"><svg id="fsvg" viewBox="0 0 360 250"></svg></div>
   <div class="tiles">
-    <div class="tile" id="t-solar"><div class="lab"><i></i>SOLAR</div><div class="val" id="v-solar">–</div><div class="sub" id="s-solar">&nbsp;</div></div>
-    <div class="tile" id="t-grid"><div class="lab"><i></i><span id="gridName">GRID</span></div><div class="val" id="v-grid">–</div><div class="sub" id="s-grid">&nbsp;</div></div>
-    <div class="tile" id="t-batt"><div class="lab"><i></i>BATTERY</div><div class="val" id="v-batt">–</div><div class="sub" id="s-batt">&nbsp;</div><div class="bar"><b id="bbar" style="width:0"></b></div></div>
-    <div class="tile" id="t-home"><div class="lab"><i></i>HOME</div><div class="val" id="v-home">–</div><div class="sub" id="s-home">&nbsp;</div></div>
+    <div class="tile" id="t-solar" data-open="solar" role="button" tabindex="0"><div class="lab"><i></i>SOLAR</div><div class="val" id="v-solar">–</div><div class="sub" id="s-solar">&nbsp;</div></div>
+    <div class="tile" id="t-grid" data-open="grid" role="button" tabindex="0"><div class="lab"><i></i><span id="gridName">GRID</span></div><div class="val" id="v-grid">–</div><div class="sub" id="s-grid">&nbsp;</div></div>
+    <div class="tile" id="t-batt" data-open="batt" role="button" tabindex="0"><div class="lab"><i></i>BATTERY</div><div class="val" id="v-batt">–</div><div class="sub" id="s-batt">&nbsp;</div><div class="bar"><b id="bbar" style="width:0"></b></div></div>
+    <div class="tile" id="t-home" data-open="home" role="button" tabindex="0"><div class="lab"><i></i>HOME</div><div class="val" id="v-home">–</div><div class="sub" id="s-home">&nbsp;</div></div>
   </div>
+  <div id="hcard"></div>
   <div class="foot" id="foot">&nbsp;</div>
 </main>
 <div class="sheet" id="sheet"><div class="panel">
@@ -221,7 +223,7 @@ function el(n,a,p){var e=document.createElementNS(NS,n);for(var k in a)e.setAttr
     FL[k]={g:g,st:'',col:n[2]}}
   el('circle',{cx:HUB[0],cy:HUB[1],r:15,fill:'#1b222d',stroke:'rgba(255,255,255,.55)','stroke-width':2});
   el('path',{d:'M182 115 l-7 12 h6 l-3 9 9-13 h-6 z',fill:'#fff',opacity:.9});
-  for(var k2 in NODES){var n2=NODES[k2],g2=el('g',{'class':'nd'});
+  for(var k2 in NODES){var n2=NODES[k2],g2=el('g',{'class':'nd','data-open':k2});
     var c=el('circle',{'class':'ring',cx:n2[0],cy:n2[1],r:40},g2);c.style.stroke=n2[2];NODES[k2].ring=c;
     NODES[k2].v=el('text',{'class':'v',x:n2[0],y:n2[1]+3},g2);NODES[k2].l=el('text',{'class':'l',x:n2[0],y:n2[1]+19},g2);NODES[k2].l.textContent=n2[3]}
 })();
@@ -232,7 +234,7 @@ function nv(k,t){if(NODES[k].v.textContent!==t)NODES[k].v.textContent=t}
 function txt(id,v,html){var e=$(id);if(html){if(e.__v!==v){e.__v=v;e.innerHTML=v}}else if(e.textContent!==v)e.textContent=v}
 
 /* ================= state + render ================= */
-var S={pvDc:0,pvAc:0,soc:null,bp:0,ttg:null,load:{},grid:{},gen:{},src:null,yield:{},seen:0},GEN=false;
+var S={pvDc:0,pvAc:0,soc:null,bp:0,ttg:null,load:{},grid:{},gen:{},src:null,yield:{},seen:0},GEN=false,T={},HOOKS=[];
 function sum(o){var t=0,n=0;for(var k in o){if(o[k]!=null){t+=o[k];n++}}return n?t:null}
 function kw(w){return w==null?'–':(Math.abs(w)/1000).toFixed(1)}
 function kwv(w){return w==null?'–':kw(w)+'<small>kW</small>'}
@@ -258,15 +260,19 @@ function render(){
   nv('solar',kw(pv)+' kW');nv('grid',gridOff?'Off':kw(ext)+' kW');nv('batt',S.soc==null?'–':Math.round(S.soc)+'%');nv('home',kw(load)+' kW');
   setCol('grid',GEN?'var(--gen)':'var(--grid)');
   setFlow('solar',pv,false,6000);setFlow('grid',ext,ext<0,5000);setFlow('batt',bp,bp>0,5000);setFlow('home',load,true,6000);
+  API.live={pv:pv,load:load,grid:ext,bp:bp,soc:S.soc,ttg:S.ttg,gridOff:gridOff,gen:GEN,yieldToday:y,src:S.src};
+  HOOKS.forEach(function(f){try{f()}catch(e){LOG('hook '+e)}});
 }
+var API=window.SOLAR={T:T,S:S,live:{},hooks:HOOKS,cfg:function(){return CFG},isDemo:function(){return DEMO},
+  now:now,sunPos:sunPos,crossing:crossing,WX:WX,LAT:LAT,LON:LON,openSettings:function(){openSheet()}};
 var ST={cls:'',txt:''};
 function status(cls,t){ST={cls:cls,txt:t};$('dot').className=cls;txt('stt',t)}
 setInterval(function(){if(!S.seen)return;var s=Math.round((Date.now()-S.seen)/1000);txt('foot',DEMO?'Sample numbers':'Updated '+(s<3?'just now':s<90?s+' s ago':Math.round(s/60)+' min ago'))},1000);
 
 /* ================= live data via Victron VRM (MQTT over secure websocket) ================= */
 var client=null,kaTimer=0,stTimer=0,DEMO=false,demoT=0,retry=0;
-function num(s){try{var v=JSON.parse(s).value;return typeof v==='number'?v:null}catch(e){return null}}
-function ingest(t,s){var p=t.split('/').slice(2).join('/'),v=num(s),m;
+function val(s){try{var v=JSON.parse(s).value;return v===undefined?null:v}catch(e){return null}}
+function ingest(t,s){var p=t.split('/').slice(2).join('/'),v=val(s),m;T[p]=v;if(typeof v!=='number')v=null;
   if(p==='system/0/Dc/Pv/Power')S.pvDc=v;
   else if(/^system\/0\/Ac\/PvOn(?:Output|Grid|Genset)\/L\d\/Power$/.test(p)){S.pvAcP=S.pvAcP||{};S.pvAcP[p]=v;S.pvAc=sum(S.pvAcP)||0}
   else if(p==='system/0/Dc/Battery/Soc')S.soc=v;
@@ -277,7 +283,6 @@ function ingest(t,s){var p=t.split('/').slice(2).join('/'),v=num(s),m;
   else if((m=p.match(/^system\/0\/Ac\/Genset\/(L\d)\/Power$/)))S.gen[m[1]]=v;
   else if(p==='system/0/Ac/ActiveIn/Source')S.src=v;
   else if((m=p.match(/^solarcharger\/(\d+)\/History\/Daily\/0\/Yield$/)))S.yield[m[1]]=v;
-  else return;
   S.seen=Date.now();if(!rq)rq=setTimeout(function(){rq=0;render()},700)}
 var rq=0;
 function broker(pid){var s=0;for(var i=0;i<pid.length;i++)s+=pid.charCodeAt(i);return 'webmqtt'+(s%128)+'.victronenergy.com'}
@@ -293,7 +298,14 @@ function connect(){
     clientId:'iphone_'+Math.random().toString(16).slice(2,10),keepalive:30,reconnectPeriod:0,connectTimeout:10000,protocolVersion:4});
   client=c;
   c.on('connect',function(){retry=0;status('','Waiting for data…');
-    ['system/0/Dc/#','system/0/Ac/#','solarcharger/+/History/Daily/0/Yield'].forEach(function(t){c.subscribe('N/'+pid+'/'+t)});
+    ['system/0/#','solarcharger/+/Yield/#','solarcharger/+/Pv/#','solarcharger/+/State','solarcharger/+/CustomName','solarcharger/+/ProductName',
+     'solarcharger/+/History/Daily/+/Yield','solarcharger/+/History/Daily/+/MaxPower','solarcharger/+/Dc/0/#',
+     'pvinverter/+/Ac/Power','pvinverter/+/Ac/Energy/Forward','pvinverter/+/CustomName','pvinverter/+/ProductName',
+     'vebus/+/Ac/ActiveIn/#','vebus/+/Ac/Out/#','vebus/+/State','vebus/+/Mode','vebus/+/ProductName','vebus/+/CustomName',
+     'grid/+/Ac/#','grid/+/ProductName','grid/+/CustomName',
+     'battery/+/Soh','battery/+/Capacity','battery/+/InstalledCapacity','battery/+/ConsumedAmphours','battery/+/System/#','battery/+/History/#',
+     'battery/+/ProductName','battery/+/CustomName','battery/+/Dc/0/#','battery/+/Info/#',
+     'settings/0/Settings/CGwacs/#'].forEach(function(t){c.subscribe('N/'+pid+'/'+t)});
     var n=0;function k(){if(client===c)c.publish('R/'+pid+'/keepalive',(n++%10===0)?'':'{"keepalive-options":["suppress-republish"]}')}
     k();kaTimer=setInterval(k,30000);
     stTimer=setInterval(function(){var age=(Date.now()-S.seen)/1000;if(client!==c)return;
@@ -305,10 +317,26 @@ function connect(){
     retry++;status('err','Reconnecting…');setTimeout(connect,Math.min(30000,2000*retry))}
   c.on('error',lost);c.on('close',function(){lost()});
 }
+function demoDetail(pv,load,bp,soc){var v=52.4+soc*.035,set=function(k,x){T[k]=x};
+  set('solarcharger/278/ProductName','SmartSolar Charger MPPT 250/100');set('solarcharger/278/CustomName','Roof east');
+  set('solarcharger/279/ProductName','SmartSolar Charger MPPT 250/100');set('solarcharger/279/CustomName','Roof west');
+  set('solarcharger/278/Yield/Power',pv*.56);set('solarcharger/279/Yield/Power',pv*.44);set('solarcharger/278/Pv/V',pv>0?168.2:0);set('solarcharger/279/Pv/V',pv>0?161.7:0);
+  set('solarcharger/278/State',pv>0?3:0);set('solarcharger/279/State',pv>0?3:0);set('solarcharger/278/Yield/User',7412.3);set('solarcharger/279/Yield/User',5980.6);
+  var Y=API.sampleDays||[18.4,24.1,26.3,21.0,9.6,25.8,27.2,26.9,19.4,12.1,24.8,26.0,27.5,23.3,25.1,26.6,17.9,8.2,14.6,25.5,27.9,28.1,26.2,24.7,22.9,27.0,28.4,25.9,26.8,24.0,27.6];
+  Y.forEach(function(y,d){set('solarcharger/278/History/Daily/'+d+'/Yield',y*.56);set('solarcharger/279/History/Daily/'+d+'/Yield',y*.44);
+    set('solarcharger/278/History/Daily/'+d+'/MaxPower',y*170);set('solarcharger/279/History/Daily/'+d+'/MaxPower',y*135)});
+  set('system/0/Dc/Battery/Voltage',v);set('system/0/Dc/Battery/Current',bp/v);set('system/0/Dc/Battery/Temperature',24.5);set('system/0/Dc/Battery/Soc',soc);
+  set('battery/512/ProductName','Lithium battery bank');set('battery/512/Soh',98);set('battery/512/InstalledCapacity',400);set('battery/512/History/ChargeCycles',312);
+  set('battery/512/System/MinCellVoltage',3.281);set('battery/512/System/MaxCellVoltage',3.296);
+  set('settings/0/Settings/CGwacs/BatteryLife/MinimumSocLimit',20);
+  set('vebus/276/ProductName','Quattro 48/10000');set('vebus/276/Ac/ActiveIn/L1/V',0);set('vebus/276/Ac/ActiveIn/L1/F',0);set('vebus/276/Ac/ActiveIn/CurrentLimit',50);
+  set('vebus/276/Ac/Out/L1/V',230.1);set('vebus/276/Ac/Out/L1/F',50.0);set('vebus/276/State',9);
+  set('system/0/Ac/ConsumptionOnOutput/L1/Power',load*.82);set('system/0/Ac/ConsumptionOnInput/L1/Power',load*.18);
+}
 function demo(){
   DEMO=true;status('live','Sample');$('banner').classList.add('on');var t=0;clearInterval(demoT);
   function step(){t++;var sp=sunPos(now()),day=sp.el>2,pv=day?4300+600*Math.sin(t/7):0,load=1900+400*Math.sin(t/5+1),bp=pv-load;
-    S.pvDc=pv;S.load={L1:load};S.soc=day?76:58;S.bp=bp;S.ttg=bp<0?6.2*3600:null;S.src=240;S.grid={L1:0};S.gen={};S.yield={0:18.4};S.seen=Date.now();render()}
+    S.pvDc=pv;S.load={L1:load};S.soc=API.sampleSoc!=null?Math.round(API.sampleSoc):day?76:58;S.bp=bp;S.ttg=bp<0?6.2*3600:null;S.src=240;S.grid={L1:0};S.gen={};S.yield={0:API.sampleDays?API.sampleDays[0]:18.4};S.seen=Date.now();demoDetail(pv,load,bp,S.soc);render()}
   step();demoT=setInterval(step,2000);
 }
 document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'){setScene();fetchWeather();if(!DEMO&&!client)connect()}});
@@ -338,5 +366,6 @@ function startScene(){
 startScene();render();connect();
 })();
 </script>
+<script src="more.js?v=1"></script>
 </body>
 </html>
