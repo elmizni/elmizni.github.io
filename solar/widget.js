@@ -420,27 +420,41 @@ async function getData () {
     throw e
   }
 }
+// connecting: read the key from the clipboard (copied on the setup page or in VRM), or type it as a fallback
+function looksLikeKey (k) { return /^[A-Za-z0-9._-]{20,200}$/.test(k) }
+async function tryKey (k) {
+  const old = token()
+  Keychain.set(K_TOKEN, k); if (Keychain.contains(K_SITE)) Keychain.remove(K_SITE)
+  try { await api('/users/me'); return 'ok' } catch (e) {
+    if (e.status === 401 || e.status === 403) { if (old) Keychain.set(K_TOKEN, old); else Keychain.remove(K_TOKEN); return 'rejected' }
+    return 'ok' // no signal right now: keep the key and try again later
+  }
+}
 async function askKey (again) {
   let note = ''
-  for (let tries = 0; tries < 4; tries++) {
+  for (let tries = 0; tries < 5; tries++) {
     const a = new Alert()
     a.title = again ? 'Change your VRM key' : 'Connect your solar system'
-    a.message = (note ? note + '\n\n' : '') + 'Copy your VRM access key first, then tap the box below and choose Paste. The key is kept in this iPhone\'s keychain and only sent to Victron.'
-    a.addTextField('Paste your VRM access key here', '')
-    a.addAction('Save'); a.addCancelAction('Cancel')
-    if (await a.presentAlert() === -1) return false
-    const k = String(a.textFieldValue(0) || '').trim().replace(/^Token\s+/i, '')
-    if (!k) { note = 'Nothing was pasted into the box.'; continue }
-    const old = token()
-    Keychain.set(K_TOKEN, k); if (Keychain.contains(K_SITE)) Keychain.remove(K_SITE)
-    try { await api('/users/me'); return true } catch (e) {
-      if (e.status === 401 || e.status === 403) {
-        if (old) Keychain.set(K_TOKEN, old); else Keychain.remove(K_TOKEN)
-        note = 'Victron did not accept that key. Make sure you copied all of it.'
-        continue
-      }
-      return true // no signal right now: keep the key and try again later
+    a.message = (note ? note + '\n\n' : '') + 'Copy your VRM key first (the setup page has a button for it), then tap Use copied key. The key is kept in this iPhone\'s keychain and only sent to Victron.'
+    a.addAction('Use copied key'); a.addAction('Type it instead'); a.addCancelAction('Cancel')
+    const i = await a.presentAlert()
+    if (i === -1) return false
+    let k = ''
+    if (i === 0) {
+      try { k = Pasteboard.pasteString() || '' } catch (e) { try { k = Pasteboard.paste() || '' } catch (e2) { k = '' } }
+      k = String(k).trim().replace(/^Token\s+/i, '')
+      if (!k) { note = 'The clipboard is empty. Copy your key, then try again.'; continue }
+      if (/Solar Home widget|function |const /.test(k)) { note = 'The clipboard has the widget code, not your key. Copy your key, then try again.'; continue }
+      if (!looksLikeKey(k)) { note = 'What\'s on the clipboard doesn\'t look like a VRM key. Copy your key, then try again.'; continue }
+    } else {
+      const t = new Alert(); t.title = 'Type or paste your VRM key'; t.addTextField('VRM access key', ''); t.addAction('Save'); t.addCancelAction('Back')
+      if (await t.presentAlert() === -1) continue
+      k = String(t.textFieldValue(0) || '').trim().replace(/^Token\s+/i, '')
+      if (!k) { note = 'Nothing was entered.'; continue }
     }
+    const r = await tryKey(k)
+    if (r === 'ok') { try { if (i === 0) Pasteboard.copyString(' ') } catch (e) { } return true }
+    note = 'Victron did not accept that key. Make sure you copied all of it.'
   }
   return false
 }

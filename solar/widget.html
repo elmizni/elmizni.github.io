@@ -71,10 +71,12 @@ code{font:600 14px ui-monospace,Menlo,monospace;color:var(--solar);background:rg
   <div class="card"><div class="step"><div class="n">4</div><div>
     <h2>Connect it once</h2>
     <ol>
-      <li>Tap the <b>Solar</b> script to run it.</li>
-      <li>Paste your <b>VRM access key</b> when asked (the same key you used for history) and tap <b>Save</b>.</li>
-      <li>A menu lets you preview every layout. Tap <b>Done</b> when finished.</li>
+      <li>Come back to this page and tap <b>Copy my VRM key</b>.</li>
+      <li>Open Scriptable and tap the <b>▶</b> on the <b>Solar</b> card.</li>
+      <li>Tap <b>Use copied key</b>. A menu then lets you preview every layout. Tap <b>Done</b> when finished.</li>
     </ol>
+    <button class="btn" id="copyKey">Copy my VRM key</button>
+    <div class="ok" id="okKey"></div>
   </div></div></div>
 
   <div class="card"><div class="step"><div class="n">5</div><div>
@@ -115,6 +117,13 @@ code{font:600 14px ui-monospace,Menlo,monospace;color:var(--solar);background:rg
 <script>
 var code = '', btn = document.getElementById('copy'), ta = document.getElementById('code'), ok = document.getElementById('ok');
 fetch('widget.js?v=' + Date.now()).then(function (r) { return r.text() }).then(function (t) { code = t; ta.value = t });
+var kb = document.getElementById('copyKey'), kok = document.getElementById('okKey');
+kb.onclick = function () {
+  var k = ''; try { k = localStorage.getItem('vrm_token') || '' } catch (e) { }
+  if (!k) { kok.innerHTML = 'Your key isn\'t saved in this browser. Make a new one: open <a style="color:#ffd24a" href="https://vrm.victronenergy.com/access-tokens">VRM access tokens</a>, tap <b>Add</b>, name it <b>Widget</b>, tap <b>Create</b>, then <b>Copy</b>.'; kok.style.color = 'rgba(255,255,255,.72)'; kok.classList.add('on'); return }
+  var done = function () { kok.textContent = 'Key copied. Now open Scriptable and tap ▶ on Solar.'; kok.style.color = ''; kok.classList.add('on'); kb.textContent = 'Key copied ✓' };
+  if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(k).then(done, function () { kok.textContent = 'Copying was blocked. Tap the button again.'; kok.classList.add('on') }); else { kok.textContent = 'This browser can\'t copy. Make a new key in VRM instead.'; kok.classList.add('on') }
+};
 btn.onclick = function () {
   if (!code) { ta.classList.add('on'); return }
   var done = function () { ok.classList.add('on'); btn.textContent = 'Copied ✓' };
