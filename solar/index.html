@@ -11,7 +11,7 @@
 <meta name="robots" content="noindex,nofollow">
 <link rel="apple-touch-icon" href="img/icon-180.png">
 <link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="more.css?v=1">
+<link rel="stylesheet" href="more.css?v=2">
 <title>Solar Home</title>
 <style>
 :root{--ink:#fff;--ink-2:rgba(255,255,255,.78);--ink-3:rgba(255,255,255,.5);
@@ -113,7 +113,8 @@ main{padding:0 14px calc(var(--sb) + 24px);max-width:640px;margin:0 auto}
     <div class="tile" id="t-home" data-open="home" role="button" tabindex="0"><div class="lab"><i></i>HOME</div><div class="val" id="v-home">–</div><div class="sub" id="s-home">&nbsp;</div></div>
   </div>
   <div id="hcard"></div>
-  <div class="foot" id="foot">&nbsp;</div>
+  <div class="foot" id="foot" role="button" tabindex="0">&nbsp;</div>
+  <div class="foot" id="diag" style="display:none;margin-top:6px;line-height:1.6"></div>
 </main>
 <div class="sheet" id="sheet"><div class="panel">
   <h2>Connect your Victron</h2>
@@ -267,12 +268,18 @@ var API=window.SOLAR={T:T,S:S,live:{},hooks:HOOKS,cfg:function(){return CFG},isD
   now:now,sunPos:sunPos,crossing:crossing,WX:WX,LAT:LAT,LON:LON,openSettings:function(){openSheet()}};
 var ST={cls:'',txt:''};
 function status(cls,t){ST={cls:cls,txt:t};$('dot').className=cls;txt('stt',t)}
+function diag(){var d=$('diag');if(d.style.display==='none')return;var n=Date.now(),c=0;for(var i=NMSG.length-1;i>=0&&n-NMSG[i]<60000;i--)c++;
+  var ago=function(t){if(!t)return 'not yet';var s=Math.round((n-t)/1000);return s<60?s+' s ago':Math.round(s/60)+' min ago'};
+  d.innerHTML='Last readings — '+['Solar','Battery','Home','Grid'].map(function(k){return k+': '+ago(AT[k])}).join(' · ')+'<br>'+c+' updates from your system in the last minute'}
+$('foot').onclick=function(){var d=$('diag');d.style.display=d.style.display==='none'?'block':'none';diag()};
+setInterval(diag,1000);
 setInterval(function(){if(!S.seen)return;var s=Math.round((Date.now()-S.seen)/1000);txt('foot',DEMO?'Sample numbers':'Updated '+(s<3?'just now':s<90?s+' s ago':Math.round(s/60)+' min ago'))},1000);
 
 /* ================= live data via Victron VRM (MQTT over secure websocket) ================= */
 var client=null,kaTimer=0,stTimer=0,DEMO=false,demoT=0,retry=0;
 function val(s){try{var v=JSON.parse(s).value;return v===undefined?null:v}catch(e){return null}}
-function ingest(t,s){var p=t.split('/').slice(2).join('/'),v=val(s),m;T[p]=v;if(typeof v!=='number')v=null;
+var AT={},NMSG=[];
+function ingest(t,s){var p=t.split('/').slice(2).join('/'),v=val(s),m,key=1,now_=Date.now();T[p]=v;if(typeof v!=='number')v=null;NMSG.push(now_);if(NMSG.length>4000)NMSG.splice(0,2000);
   if(p==='system/0/Dc/Pv/Power')S.pvDc=v;
   else if(/^system\/0\/Ac\/PvOn(?:Output|Grid|Genset)\/L\d\/Power$/.test(p)){S.pvAcP=S.pvAcP||{};S.pvAcP[p]=v;S.pvAc=sum(S.pvAcP)||0}
   else if(p==='system/0/Dc/Battery/Soc')S.soc=v;
@@ -283,7 +290,9 @@ function ingest(t,s){var p=t.split('/').slice(2).join('/'),v=val(s),m;T[p]=v;if(
   else if((m=p.match(/^system\/0\/Ac\/Genset\/(L\d)\/Power$/)))S.gen[m[1]]=v;
   else if(p==='system/0/Ac/ActiveIn/Source')S.src=v;
   else if((m=p.match(/^solarcharger\/(\d+)\/History\/Daily\/0\/Yield$/)))S.yield[m[1]]=v;
-  S.seen=Date.now();if(!rq)rq=setTimeout(function(){rq=0;render()},700)}
+  else key=0;
+  if(key){S.seen=now_;var g=/Pv|PvOn|Yield/.test(p)?'Solar':/Battery/.test(p)?'Battery':/Consumption/.test(p)?'Home':'Grid';AT[g]=now_}
+  if(!rq)rq=setTimeout(function(){rq=0;render()},700)}
 var rq=0;
 function broker(pid){var s=0;for(var i=0;i<pid.length;i++)s+=pid.charCodeAt(i);return 'webmqtt'+(s%128)+'.victronenergy.com'}
 function stopDemo(){DEMO=false;clearInterval(demoT);$('banner').classList.remove('on')}
@@ -298,14 +307,15 @@ function connect(){
     clientId:'iphone_'+Math.random().toString(16).slice(2,10),keepalive:30,reconnectPeriod:0,connectTimeout:10000,protocolVersion:4});
   client=c;
   c.on('connect',function(){retry=0;status('','Waiting for data…');
-    ['system/0/#','solarcharger/+/Yield/#','solarcharger/+/Pv/#','solarcharger/+/State','solarcharger/+/CustomName','solarcharger/+/ProductName',
-     'solarcharger/+/History/Daily/+/Yield','solarcharger/+/History/Daily/+/MaxPower','solarcharger/+/Dc/0/#',
+    ['system/0/Dc/#','system/0/Ac/#',
+     'solarcharger/+/History/Daily/+/Yield','solarcharger/+/History/Daily/+/MaxPower','solarcharger/+/Yield/Power','solarcharger/+/Yield/User',
+     'solarcharger/+/Pv/V','solarcharger/+/State','solarcharger/+/CustomName','solarcharger/+/ProductName',
      'pvinverter/+/Ac/Power','pvinverter/+/Ac/Energy/Forward','pvinverter/+/CustomName','pvinverter/+/ProductName',
-     'vebus/+/Ac/ActiveIn/#','vebus/+/Ac/Out/#','vebus/+/State','vebus/+/Mode','vebus/+/ProductName','vebus/+/CustomName',
-     'grid/+/Ac/#','grid/+/ProductName','grid/+/CustomName',
-     'battery/+/Soh','battery/+/Capacity','battery/+/InstalledCapacity','battery/+/ConsumedAmphours','battery/+/System/#','battery/+/History/#',
-     'battery/+/ProductName','battery/+/CustomName','battery/+/Dc/0/#','battery/+/Info/#',
-     'settings/0/Settings/CGwacs/#'].forEach(function(t){c.subscribe('N/'+pid+'/'+t)});
+     'vebus/+/Ac/ActiveIn/L1/V','vebus/+/Ac/ActiveIn/L1/F','vebus/+/Ac/ActiveIn/CurrentLimit','vebus/+/Ac/Out/L1/V','vebus/+/State','vebus/+/ProductName',
+     'grid/+/Ac/L1/Voltage','grid/+/Ac/Frequency','grid/+/Ac/Energy/Forward','grid/+/Ac/Energy/Reverse',
+     'battery/+/Soh','battery/+/InstalledCapacity','battery/+/History/ChargeCycles','battery/+/System/MinCellVoltage','battery/+/System/MaxCellVoltage',
+     'battery/+/Dc/0/Temperature','battery/+/ProductName','battery/+/CustomName',
+     'settings/0/Settings/CGwacs/BatteryLife/MinimumSocLimit'].forEach(function(t){c.subscribe('N/'+pid+'/'+t)});
     var n=0;function k(){if(client===c)c.publish('R/'+pid+'/keepalive',(n++%10===0)?'':'{"keepalive-options":["suppress-republish"]}')}
     k();kaTimer=setInterval(k,30000);
     stTimer=setInterval(function(){var age=(Date.now()-S.seen)/1000;if(client!==c)return;
@@ -366,6 +376,6 @@ function startScene(){
 startScene();render();connect();
 })();
 </script>
-<script src="more.js?v=1"></script>
+<script src="more.js?v=2"></script>
 </body>
 </html>
