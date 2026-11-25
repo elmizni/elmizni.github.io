@@ -183,7 +183,7 @@ function loadHistory(force) {
     if (cached && cached.kf === K.kf && (!H.db || H.db.sample)) {
       return decrypt(K, cached).then(function (s) { if (!H.db || H.db.sample) { H.db = normSummary(s); H.mode = 'ready'; H.at = 0; refresh() } }, function () { });
     }
-  }).then(function () { return getJSON('status.json', bust) }).then(function (st) {
+  }).then(function () { return getJSON('status.json', Date.now()) }).then(function (st) {
     H.status = st;
     if (!st.kf) throw { code: 'nosetup' };
     if (st.kf !== H.K.kf) throw { code: 'keymismatch' };
