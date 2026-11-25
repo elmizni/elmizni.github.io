@@ -4,7 +4,9 @@ name: Solar history
 # history-data branch for the Solar Home page. Needs the repository secret VRM_TOKEN.
 on:
   schedule:
-    - cron: '23 * * * *'
+    # GitHub often skips or delays scheduled runs (widely reported since Aug 2026), so ask every 15 minutes;
+    # each run is quick and simply refreshes the same files
+    - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
   push:
     branches: [main]
