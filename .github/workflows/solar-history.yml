@@ -1,0 +1,60 @@
+name: Solar history
+
+# Every hour, fetch the solar system's history from Victron VRM and save it (encrypted) on the
+# history-data branch for the Solar Home page. Needs the repository secret VRM_TOKEN.
+on:
+  schedule:
+    - cron: '23 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: solar-history
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+          fetch-depth: 1
+
+      - name: Get the history saved last time
+        run: |
+          mkdir -p data
+          if git fetch -q --depth=1 origin history-data 2>/dev/null; then
+            git archive FETCH_HEAD | tar -x -C data
+          fi
+          ls data | head -40
+
+      - name: Fetch from Victron VRM
+        env:
+          VRM_TOKEN: ${{ secrets.VRM_TOKEN }}
+          VRM_PORTAL: c0619ab55707
+        run: node .github/scripts/solar-history.mjs data out && cat out/status.json
+
+      - name: Save
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd out
+          git init -q -b history-data
+          git add -A
+          git -c user.name="solar-history" -c user.email="actions@users.noreply.github.com" commit -q -m "Solar history $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" history-data
+
+      - name: Keep the hourly schedule switched on
+        # GitHub pauses scheduled jobs after 60 days without new commits on the main branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          last=$(git log -1 --format=%ct)
+          if [ $(( $(date +%s) - last )) -gt $(( 40 * 86400 )) ]; then
+            git -c user.name="solar-history" -c user.email="actions@users.noreply.github.com" commit -q --allow-empty -m "Keep the solar history schedule running"
+            git push -q "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:${GITHUB_REF_NAME}
+          fi
