@@ -421,16 +421,28 @@ async function getData () {
   }
 }
 async function askKey (again) {
-  const a = new Alert()
-  a.title = again ? 'Change your VRM key' : 'Connect your solar system'
-  a.message = 'Paste your Victron VRM access key. It is kept in this iPhone\'s keychain and only sent to Victron.'
-  a.addSecureTextField('VRM access key', '')
-  a.addAction('Save'); a.addCancelAction('Cancel')
-  if (await a.presentAlert() === -1) return false
-  const k = a.textFieldValue(0).trim().replace(/^Token\s+/i, '')
-  if (!k) return false
-  Keychain.set(K_TOKEN, k); if (Keychain.contains(K_SITE)) Keychain.remove(K_SITE)
-  return true
+  let note = ''
+  for (let tries = 0; tries < 4; tries++) {
+    const a = new Alert()
+    a.title = again ? 'Change your VRM key' : 'Connect your solar system'
+    a.message = (note ? note + '\n\n' : '') + 'Copy your VRM access key first, then tap the box below and choose Paste. The key is kept in this iPhone\'s keychain and only sent to Victron.'
+    a.addTextField('Paste your VRM access key here', '')
+    a.addAction('Save'); a.addCancelAction('Cancel')
+    if (await a.presentAlert() === -1) return false
+    const k = String(a.textFieldValue(0) || '').trim().replace(/^Token\s+/i, '')
+    if (!k) { note = 'Nothing was pasted into the box.'; continue }
+    const old = token()
+    Keychain.set(K_TOKEN, k); if (Keychain.contains(K_SITE)) Keychain.remove(K_SITE)
+    try { await api('/users/me'); return true } catch (e) {
+      if (e.status === 401 || e.status === 403) {
+        if (old) Keychain.set(K_TOKEN, old); else Keychain.remove(K_TOKEN)
+        note = 'Victron did not accept that key. Make sure you copied all of it.'
+        continue
+      }
+      return true // no signal right now: keep the key and try again later
+    }
+  }
+  return false
 }
 
 async function main () {
