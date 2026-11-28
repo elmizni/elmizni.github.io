@@ -1,0 +1,38 @@
+{
+ "v": 1,
+ "run": 1795895403574,
+ "ok": true,
+ "steps": {
+  "days": "ok 0 (from hours: 110)",
+  "months": "ok 0 (from days: 4)",
+  "socDays": "ok 0 (from hours: 110)",
+  "soc15": "ok 760",
+  "gridVoltage": "ok 760",
+  "forecast": "ok 48",
+  "2026-11": "ok 670"
+ },
+ "kf": "f0f912bd",
+ "gen": 1795895404390,
+ "shape": {
+  "days": "array[0]",
+  "months": "array[0]",
+  "socDays": "array[0]",
+  "hours": "{Gc:[669x2] Bc:[633x2] Gb:[495x2] Pc:[307x2] Pb:[276x2] Pg:[157x2] Bg:[81x2] gc:[1x2] kwh:[670x2]} totals:Gc,Bc,Gb,Pc,Pb,Pg,Bg,gc,kwh"
+ },
+ "months": [
+  "2025-11",
+  "2025-12",
+  "2026-01",
+  "2026-02",
+  "2026-03",
+  "2026-04",
+  "2026-05",
+  "2026-06",
+  "2026-07",
+  "2026-08",
+  "2026-09",
+  "2026-10",
+  "2026-11"
+ ],
+ "took": 9518
+}
